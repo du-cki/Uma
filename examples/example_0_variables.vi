@@ -1,4 +1,3 @@
-
 func main() {
-     let greet = "Hello";
+     print("Hello, World!");
 }

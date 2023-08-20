@@ -2,7 +2,7 @@ mod tokens;
 
 use std::str::Chars;
 
-use self::tokens::Token;
+pub use self::tokens::Token;
 
 struct Buffer<'a> {
     data: Chars<'a>,
@@ -209,8 +209,8 @@ mod tests {
     #[test]
     fn lex_function() {
         let lexed = Lexer::new(r#"
-            func name_of_function(argument1, argument2) {
-                argument1 + argument2
+            func main() {
+                print("Hello, World!");
             }
         "#).lex();
 
@@ -218,16 +218,15 @@ mod tests {
             lexed,
             vec![
                 Token::Func,
-                Token::Identifier("name_of_function".to_string()),
+                Token::Identifier("main".to_string()),
                 Token::PareL,
-                Token::Identifier("argument1".to_string()),
-                Token::Comma,
-                Token::Identifier("argument2".to_string()),
                 Token::PareR,
                 Token::BraceL,
-                Token::Identifier("argument1".to_string()),
-                Token::Add,
-                Token::Identifier("argument2".to_string()),
+                Token::Identifier("print".to_string()),
+                Token::PareL,
+                Token::String("Hello, World!".to_string()),
+                Token::PareR,
+                Token::Semi,
                 Token::BraceR,
             ]
         )
