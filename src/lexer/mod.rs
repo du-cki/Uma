@@ -1,11 +1,11 @@
 mod tokens;
 
-use std::{str::Chars, iter::Peekable};
+use std::str::Chars;
 
 use self::tokens::Token;
 
 struct Buffer<'a> {
-    data: Peekable<Chars<'a>>,
+    data: Chars<'a>,
 
     eof: bool,
     current: char,
@@ -16,13 +16,20 @@ struct Buffer<'a> {
 
 impl<'a> Buffer<'a> {
     fn new(raw_data: &'a str) -> Buffer<'a> {
-        let mut data = raw_data.chars().peekable();
+        let mut data = raw_data.chars();
         let current = data.next().unwrap_or('\0');
+
+        let eof = {
+            if current == '\0' {
+                true
+            } else {
+                false
+            }
+        };
 
         Buffer {
             data,
-            // count,
-            eof: false,
+            eof,
             current,
             ln: 0,
             idx: 0,
@@ -46,10 +53,6 @@ impl<'a> Buffer<'a> {
         self.current = c;
 
         Some(c)
-    }
-
-    fn peek(&mut self) -> Option<char> {
-        self.data.peek().copied()
     }
 }
 
@@ -286,12 +289,12 @@ mod tests {
 
     #[test]
     fn test_buffer() {
-        let mut buffer = Buffer::new("Lorem Epsium!");
+        let mut buffer = Buffer::new("Lot");
 
         assert_eq!(buffer.current, 'L');
         assert_eq!(buffer.next(), Some('o'));
-        assert_eq!(buffer.peek(), Some('r'));
-        assert_eq!(buffer.next(), Some('r'));
-        assert_eq!(buffer.current, 'r');
+        assert_eq!(buffer.next(), Some('t'));
+        assert_eq!(buffer.current, 't');
+        assert_eq!(buffer.next(), None)
     }
 }
