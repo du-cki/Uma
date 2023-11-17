@@ -1,76 +1,43 @@
 mod tokens;
+mod utils;
 
-use std::str::Chars;
+pub use self::tokens::TokenType;
 
-pub use self::tokens::Token;
+pub use self::utils::Buffer;
 
-struct Buffer<'a> {
-    data: Chars<'a>,
-
-    eof: bool,
-    current: char,
-    // count: usize,
-    ln: usize,
-    idx: usize
-}
-
-impl<'a> Buffer<'a> {
-    fn new(raw_data: &'a str) -> Buffer<'a> {
-        let mut data = raw_data.chars();
-        let current = data.next().unwrap_or('\0');
-
-        let eof = {
-            if current == '\0' {
-                true
-            } else {
-                false
-            }
-        };
-
-        Buffer {
-            data,
-            eof,
-            current,
-            ln: 0,
-            idx: 0,
-        }
-    }
-
-    fn next(&mut self) -> Option<char> {
-        let c = match self.data.next() {
-            None => {
-                self.eof = true;
-                return None;
-            },
-            Some(c) => c
-        };
-
-        if c == '\n' {
-            self.ln += 1;
-        }
-
-        self.idx += 1;
-        self.current = c;
-
-        Some(c)
-    }
-}
-
-struct Lexer<'a> {
-    buffer: Buffer<'a>
+#[derive(Debug, PartialEq)]
+pub struct Token {
+    pub token_type: TokenType,
+    pub value: Option<String>
 }
 
 fn match_keyword_to_token(thing: &str) -> Option<Token> {
-    match thing {
-        "let" => Some(Token::Let),
-        "false" | "true" => Some(Token::Bool(thing.to_string())),
-        "none" => Some(Token::None),
-        "if" => Some(Token::If),
-        "else" => Some(Token::Else),
-        "func" => Some(Token::Func),
-        "return" => Some(Token::Return),
-        _ => None
-    }
+    let thing = {
+        match thing {
+            "let" => Some(TokenType::Let),
+            "if" => Some(TokenType::If),
+            "else" => Some(TokenType::Else),
+            "func" => Some(TokenType::Func),
+            "return" => Some(TokenType::Return),
+
+            // not really a keyword but i cant be bothered to parse them
+            // separately, easier to parse them here.
+            "none" => Some(TokenType::None),
+            "false" => Some(TokenType::False),
+            "true" => Some(TokenType::True),
+            "mut" => Some(TokenType::Mut),
+            _ => None
+        }
+    };
+
+    Some(Token {
+        token_type: thing?,
+        value: None
+    })
+}
+
+pub struct Lexer<'a> {
+    buffer: Buffer<'a>
 }
 
 impl<'a> Lexer<'a> {
@@ -89,13 +56,16 @@ impl<'a> Lexer<'a> {
         }
 
         match_keyword_to_token(&out)
-            .unwrap_or(Token::Identifier(out))
+            .unwrap_or(Token {
+                token_type: TokenType::Identifier,
+                value: Some(out)
+            })
     }
 
     fn parse_number(&mut self) -> Token {
         let mut out = String::new();
 
-        while self.buffer.current.is_numeric() || self.buffer.current == '_' || self.buffer.current == '.' {
+        while self.buffer.current.is_ascii_digit() || self.buffer.current == '_' || self.buffer.current == '.' {
             let curr = self.buffer.current;
 
             if curr == '_' {
@@ -114,9 +84,15 @@ impl<'a> Lexer<'a> {
         }
 
         if out.contains('.') {
-            Token::Float(out)
+            Token {
+                value: Some(out),
+                token_type: TokenType::Float
+            }
         } else {
-            Token::Number(out)
+            Token {
+                value: Some(out),
+                token_type: TokenType::Number
+            }
         }
     }
 
@@ -146,26 +122,38 @@ impl<'a> Lexer<'a> {
         }
 
         self.buffer.next();
-        Token::String(out)
+
+        Token {
+            value: Some(out),
+            token_type: TokenType::String,
+        }
     }
 
     fn parse_character(&mut self) -> Token {
-        match self.buffer.current {
-            ';' => Token::Semi,
-            '=' => Token::Equals,
-            '.' => Token::Dot,
-            ',' => Token::Comma,
-            '{' => Token::BraceL,
-            '}' => Token::BraceR,
-            '(' => Token::PareL,
-            ')' => Token::PareR,
-            '[' => Token::BracketL,
-            ']' => Token::BracketR,
-            '+' => Token::Add,
-            '-' => Token::Sub,
-            '/' => Token::Div,
-            '*' => Token::Multi,
-            _ => panic!("Unexpected character `{}` found while parsing.", self.buffer.current)
+        let token_type ={
+            match self.buffer.current {
+                ';' => TokenType::Semi,
+                '=' => TokenType::Equals,
+                '.' => TokenType::Dot,
+                ',' => TokenType::Comma,
+                '{' => TokenType::BraceL,
+                '}' => TokenType::BraceR,
+                '(' => TokenType::PareL,
+                ')' => TokenType::PareR,
+                '[' => TokenType::BracketL,
+                ']' => TokenType::BracketR,
+                '+' => TokenType::Add,
+                '-' => TokenType::Sub,
+                '/' => TokenType::Div,
+                '*' => TokenType::Multi,
+                '^' => TokenType::Expo,
+                _ => panic!("Unexpected character `{}` found while parsing.", self.buffer.current)
+            }
+        };
+
+        Token {
+            value: None,
+            token_type
         }
     }
 
@@ -185,13 +173,9 @@ impl<'a> Lexer<'a> {
                 '\'' | '"' => tokens.push(
                     self.parse_string(curr)
                 ),
-                c if c.is_whitespace() => {
-                    self.buffer.next();
-                },
+                c if c.is_whitespace() => { self.buffer.next(); },
                 _ => {
-                    tokens.push(
-                        self.parse_character()
-                    );
+                    tokens.push(self.parse_character());
 
                     self.buffer.next();
                 }
@@ -217,21 +201,20 @@ mod tests {
         assert_eq!(
             lexed,
             vec![
-                Token::Func,
-                Token::Identifier("main".to_string()),
-                Token::PareL,
-                Token::PareR,
-                Token::BraceL,
-                Token::Identifier("print".to_string()),
-                Token::PareL,
-                Token::String("Hello, World!".to_string()),
-                Token::PareR,
-                Token::Semi,
-                Token::BraceR,
+                Token { token_type: TokenType::Func, value: None },
+                Token { token_type: TokenType::Identifier, value: Some("main".to_string()) },
+                Token { token_type: TokenType::PareL, value: None,  },
+                Token { token_type: TokenType::PareR, value: None },
+                Token { token_type: TokenType::BraceL, value: None },
+                Token { token_type: TokenType::Identifier, value: Some("print".to_string()) },
+                Token { token_type: TokenType::PareL, value: None },
+                Token { token_type: TokenType::String, value: Some("Hello, World!".to_string()) },
+                Token { token_type: TokenType::PareR, value: None },
+                Token { token_type: TokenType::Semi, value: None },
+                Token { token_type: TokenType::BraceR, value: None },
             ]
         )
     }
-
 
     #[test]
     fn lex_variable() {
@@ -242,47 +225,56 @@ mod tests {
         assert_eq!(
             lexed,
             vec![
-                Token::Let,
-                Token::Identifier("x".to_string()),
-                Token::Equals,
-                Token::String("Hello, World!".to_string()),
-                Token::Semi
+                Token { token_type: TokenType::Let, value: None },
+                Token { token_type: TokenType::Identifier, value: Some("x".to_string()) },
+                Token { token_type: TokenType::Equals, value: None },
+                Token { token_type: TokenType::String, value: Some("Hello, World!".to_string()) },
+                Token { token_type: TokenType::Semi, value: None },
             ]
         )
     }
 
     #[test]
-    fn test_num_parsing() {
+    fn num_parsing() {
         let mut parsed_int = Lexer::new("1_000_000;");
 
         assert_eq!(
             parsed_int.parse_number(),
-            Token::Number("1000000".to_string())
+            Token {
+                token_type: TokenType::Number,
+                value: Some("1000000".to_string())
+            }
         );
 
         assert_eq!( // check if it consumes things that weren't an integer
             parsed_int.buffer.current,
             ';'
-        );
-    }
-
-    #[test]
-    fn test_float_parsing() {
-        let parsed_float = Lexer::new("3.14156;").parse_number();
-
-        assert_eq!(
-            parsed_float,
-            Token::Float("3.14156".to_string())
         )
     }
 
     #[test]
-    fn test_string_parsing() {
+    fn float_parsing() {
+        let parsed_float = Lexer::new("3.14156;").parse_number();
+
+        assert_eq!(
+            parsed_float,
+            Token {
+                token_type: TokenType::Float,
+                value: Some("3.14156".to_string())
+            }
+        )
+    }
+
+    #[test]
+    fn string_parsing() {
         let parsed = Lexer::new(r#"'Hello\n\\n,\'"" World!!'"#).parse_string('\'');
 
         assert_eq!(
             parsed,
-            Token::String("Hello\n\\n,\'\"\" World!!".to_string())
+            Token {
+                token_type: TokenType::String,
+                value: Some("Hello\n\\n,\'\"\" World!!".to_string())
+            }
         )
     }
 
@@ -290,10 +282,12 @@ mod tests {
     fn test_buffer() {
         let mut buffer = Buffer::new("Lot");
 
+        assert_eq!(buffer.eof, false);
         assert_eq!(buffer.current, 'L');
         assert_eq!(buffer.next(), Some('o'));
         assert_eq!(buffer.next(), Some('t'));
         assert_eq!(buffer.current, 't');
-        assert_eq!(buffer.next(), None)
-    }
+        assert_eq!(buffer.next(), None);
+        assert_eq!(buffer.eof, true)
+   }
 }
