@@ -5,7 +5,6 @@ pub struct Buffer<'a> {
 
     pub eof: bool,
     pub current: char,
-    // count: usize,
     pub ln: usize,
     pub idx: usize
 }

@@ -36,11 +36,13 @@ pub enum TokenType {
 
 impl TokenType {
     pub fn precedence(&self) -> u8 {
+        use TokenType as TT;
+
         match *self {
-            TokenType::Expo                   => 3,
-            TokenType::Div | TokenType::Multi => 2,
-            TokenType::Add | TokenType::Sub   => 1,
-            _                                 => 0,
+            TT::Expo            => 3,
+            TT::Div | TT::Multi => 2,
+            TT::Add | TT::Sub   => 1,
+            _                   => 0,
         }
     }
 

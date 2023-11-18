@@ -98,6 +98,7 @@ impl Parser {
                                 rhs: Box::new(rhs_expr.into())
                             });
                         },
+                        // in cases of there being only an operator left in the stack.
                         (Some(_), None) => {
                             if stack.len() >= 2 {
                                 let (lhs, rhs) = (stack.pop().unwrap(), stack.pop().unwrap());

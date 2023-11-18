@@ -26,29 +26,4 @@ impl Buffer {
     pub fn peek(&self) -> Option<&Token> {
         self.get(0)
     }
-
-    // pub fn get_primary(&mut self) -> Option<Vec<Token>> {
-    //     match self.consume() {
-    //         Some(t) if t.token_type == TokenType::PareL => {
-    //             let mut scope = 0;
-    //             let mut tokens = Vec::new();
-
-    //             while self.tokens.len() > 0 {
-    //                 if let Some(t) = self.consume() {
-    //                     if t.token_type == TokenType::PareL { scope += 1 }
-
-    //                     if t.token_type == TokenType::PareR {
-    //                         if scope > 0 { scope -= 1 } else { break }
-    //                     }
-
-    //                     tokens.push(t)
-    //                 } else { panic!("Unmatched parenthesis, no closing parenthesis found.") };
-    //             }
-
-    //             Some(tokens)
-    //         },
-    //         Some(t) => vec![t].into(),
-    //         _ => None,
-    //     }
-    // }
 }
