@@ -8,42 +8,39 @@ pub use self::utils::Buffer;
 #[derive(Debug, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
-    pub value: Option<String>
+    pub value: Option<String>,
 }
 
-fn match_keyword_to_token(thing: &str) -> Option<Token> {
-    let thing = {
-        match thing {
+fn match_keyword_to_token(keyword: &str) -> Option<Token> {
+    let token = {
+        match keyword {
             "let" => Some(TokenType::Let),
+            "mut" => Some(TokenType::Mut),
             "if" => Some(TokenType::If),
             "else" => Some(TokenType::Else),
             "func" => Some(TokenType::Func),
             "return" => Some(TokenType::Return),
-
-            // not really a keyword but i cant be bothered to parse them
-            // separately, easier to parse them here.
-            "none" => Some(TokenType::None),
-            "false" => Some(TokenType::False),
             "true" => Some(TokenType::True),
-            "mut" => Some(TokenType::Mut),
-            _ => None
+            "false" => Some(TokenType::False),
+            "none" => Some(TokenType::None),
+            _ => None,
         }
     };
 
     Some(Token {
-        token_type: thing?,
-        value: None
+        token_type: token?,
+        value: None,
     })
 }
 
 pub struct Lexer<'a> {
-    buffer: Buffer<'a>
+    buffer: Buffer<'a>,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(cnt: &'a str) -> Lexer<'a> {
         Lexer {
-            buffer: Buffer::new(cnt)
+            buffer: Buffer::new(cnt),
         }
     }
 
@@ -55,17 +52,19 @@ impl<'a> Lexer<'a> {
             self.buffer.next();
         }
 
-        match_keyword_to_token(&out)
-            .unwrap_or(Token {
-                token_type: TokenType::Identifier,
-                value: Some(out)
-            })
+        match_keyword_to_token(&out).unwrap_or(Token {
+            token_type: TokenType::Identifier,
+            value: Some(out),
+        })
     }
 
     fn parse_number(&mut self) -> Token {
         let mut out = String::new();
 
-        while self.buffer.current.is_ascii_digit() || self.buffer.current == '_' || self.buffer.current == '.' {
+        while self.buffer.current.is_ascii_digit()
+            || self.buffer.current == '_'
+            || self.buffer.current == '.'
+        {
             let curr = self.buffer.current;
 
             if curr == '_' {
@@ -86,12 +85,12 @@ impl<'a> Lexer<'a> {
         if out.contains('.') {
             Token {
                 value: Some(out),
-                token_type: TokenType::Float
+                token_type: TokenType::Float,
             }
         } else {
             Token {
                 value: Some(out),
-                token_type: TokenType::Number
+                token_type: TokenType::Number,
             }
         }
     }
@@ -108,7 +107,7 @@ impl<'a> Lexer<'a> {
                     'n' => '\n',
                     't' => '\t',
                     '\\' => '\\',
-                    other => other
+                    other => other,
                 };
 
                 out.push(curr);
@@ -130,7 +129,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn parse_character(&mut self) -> Token {
-        let token_type ={
+        let token_type = {
             match self.buffer.current {
                 ';' => TokenType::Semi,
                 '=' => TokenType::Equals,
@@ -147,13 +146,16 @@ impl<'a> Lexer<'a> {
                 '/' => TokenType::Div,
                 '*' => TokenType::Multi,
                 '^' => TokenType::Expo,
-                _ => panic!("Unexpected character `{}` found while parsing.", self.buffer.current)
+                _ => panic!(
+                    "Unexpected character `{}` found while parsing.",
+                    self.buffer.current
+                ),
             }
         };
 
         Token {
             value: None,
-            token_type
+            token_type,
         }
     }
 
@@ -164,16 +166,12 @@ impl<'a> Lexer<'a> {
             let curr = self.buffer.current;
 
             match curr {
-                'a'..='z' | 'A'..='Z' | '_' => tokens.push(
-                    self.parse_idx_or_kw()
-                ),
-                '0'..='9' => tokens.push(
-                    self.parse_number()
-                ),
-                '\'' | '"' => tokens.push(
-                    self.parse_string(curr)
-                ),
-                c if c.is_whitespace() => { self.buffer.next(); },
+                'a'..='z' | 'A'..='Z' | '_' => tokens.push(self.parse_idx_or_kw()),
+                '0'..='9' => tokens.push(self.parse_number()),
+                '\'' | '"' => tokens.push(self.parse_string(curr)),
+                c if c.is_whitespace() => {
+                    self.buffer.next();
+                }
                 _ => {
                     tokens.push(self.parse_character());
 
@@ -192,44 +190,98 @@ mod tests {
 
     #[test]
     fn lex_function() {
-        let lexed = Lexer::new(r#"
+        let lexed = Lexer::new(
+            r#"
             func main() {
                 print("Hello, World!");
             }
-        "#).lex();
+        "#,
+        )
+        .lex();
 
         assert_eq!(
             lexed,
             vec![
-                Token { token_type: TokenType::Func, value: None },
-                Token { token_type: TokenType::Identifier, value: Some("main".to_string()) },
-                Token { token_type: TokenType::PareL, value: None,  },
-                Token { token_type: TokenType::PareR, value: None },
-                Token { token_type: TokenType::BraceL, value: None },
-                Token { token_type: TokenType::Identifier, value: Some("print".to_string()) },
-                Token { token_type: TokenType::PareL, value: None },
-                Token { token_type: TokenType::String, value: Some("Hello, World!".to_string()) },
-                Token { token_type: TokenType::PareR, value: None },
-                Token { token_type: TokenType::Semi, value: None },
-                Token { token_type: TokenType::BraceR, value: None },
+                Token {
+                    token_type: TokenType::Func,
+                    value: None
+                },
+                Token {
+                    token_type: TokenType::Identifier,
+                    value: Some("main".to_string())
+                },
+                Token {
+                    token_type: TokenType::PareL,
+                    value: None,
+                },
+                Token {
+                    token_type: TokenType::PareR,
+                    value: None
+                },
+                Token {
+                    token_type: TokenType::BraceL,
+                    value: None
+                },
+                Token {
+                    token_type: TokenType::Identifier,
+                    value: Some("print".to_string())
+                },
+                Token {
+                    token_type: TokenType::PareL,
+                    value: None
+                },
+                Token {
+                    token_type: TokenType::String,
+                    value: Some("Hello, World!".to_string())
+                },
+                Token {
+                    token_type: TokenType::PareR,
+                    value: None
+                },
+                Token {
+                    token_type: TokenType::Semi,
+                    value: None
+                },
+                Token {
+                    token_type: TokenType::BraceR,
+                    value: None
+                },
             ]
         )
     }
 
     #[test]
     fn lex_variable() {
-        let lexed = Lexer::new(r#"
+        let lexed = Lexer::new(
+            r#"
             let x = "Hello, World!";
-        "#).lex();
+        "#,
+        )
+        .lex();
 
         assert_eq!(
             lexed,
             vec![
-                Token { token_type: TokenType::Let, value: None },
-                Token { token_type: TokenType::Identifier, value: Some("x".to_string()) },
-                Token { token_type: TokenType::Equals, value: None },
-                Token { token_type: TokenType::String, value: Some("Hello, World!".to_string()) },
-                Token { token_type: TokenType::Semi, value: None },
+                Token {
+                    token_type: TokenType::Let,
+                    value: None
+                },
+                Token {
+                    token_type: TokenType::Identifier,
+                    value: Some("x".to_string())
+                },
+                Token {
+                    token_type: TokenType::Equals,
+                    value: None
+                },
+                Token {
+                    token_type: TokenType::String,
+                    value: Some("Hello, World!".to_string())
+                },
+                Token {
+                    token_type: TokenType::Semi,
+                    value: None
+                },
             ]
         )
     }
@@ -246,7 +298,8 @@ mod tests {
             }
         );
 
-        assert_eq!( // check if it consumes things that weren't an integer
+        assert_eq!(
+            // check if it consumes things that weren't an integer
             parsed_int.buffer.current,
             ';'
         )
@@ -289,5 +342,5 @@ mod tests {
         assert_eq!(buffer.current, 't');
         assert_eq!(buffer.next(), None);
         assert_eq!(buffer.eof, true)
-   }
+    }
 }

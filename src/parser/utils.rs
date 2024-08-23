@@ -1,17 +1,16 @@
 use std::collections::VecDeque;
 
-use crate::lexer::{Token, TokenType};
-use super::types::Expr;
+use crate::lexer::Token;
 
 // don't really like redefining another Buffer, but I'll write a generic one whenever.
 pub(crate) struct Buffer {
-    pub tokens: VecDeque<Token>
+    pub tokens: VecDeque<Token>,
 }
 
 impl Buffer {
     pub fn new(tokens: Vec<Token>) -> Buffer {
         Buffer {
-            tokens: VecDeque::from(tokens)
+            tokens: VecDeque::from(tokens),
         }
     }
 

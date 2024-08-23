@@ -53,19 +53,24 @@ impl Parser {
 
             match r.token_type {
                 ref t if t.is_op() => {
-                    if let Some(top_op) = operand_stack.last() {
+                    while let Some(top_op) = operand_stack.last() {
                         if top_op.token_type.precedence() >= t.precedence() {
                             output_stack.push_back(operand_stack.pop().unwrap());
-                            continue;
+                        } else {
+                            break;
                         }
                     }
-
-                    operand_stack.push(r)
+                    operand_stack.push(r);
                 }
                 TokenType::Number | TokenType::String | TokenType::Float => {
                     output_stack.push_back(r)
                 }
-                TokenType::Identifier => output_stack.push_back(r),
+                TokenType::Identifier => {
+                    // if self.try_expect(&TokenType::BraceL).is_some() {
+                    //     output_stack.push_back(self.call(r.value.unwrap()));
+                    // }
+                    output_stack.push_back(r)
+                }
                 TokenType::PareL => operand_stack.push(r),
                 TokenType::PareR => {
                     while let Some(op) = operand_stack.pop() {
