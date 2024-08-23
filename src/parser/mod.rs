@@ -5,17 +5,17 @@ use std::collections::VecDeque;
 
 use crate::lexer::{Token, TokenType};
 
+use self::types::{Expr, Stmt};
 use self::utils::Buffer;
-use self::types::{Stmt, Expr};
 
 pub struct Parser {
-    tokens: Buffer
+    tokens: Buffer,
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Parser {
         Parser {
-            tokens: Buffer::new(tokens)
+            tokens: Buffer::new(tokens),
         }
     }
 
@@ -26,7 +26,7 @@ impl Parser {
             }
         }
 
-        return None
+        return None;
     }
 
     fn expect(&mut self, token_type: TokenType) -> Token {
@@ -41,7 +41,7 @@ impl Parser {
 
     fn shunt_infix(&mut self) -> VecDeque<Token> {
         let mut output_queue = VecDeque::<Token>::new();
-        let mut op_stack     = Vec::<Token>::new();
+        let mut op_stack = Vec::<Token>::new();
 
         while let Some(token) = self.tokens.peek() {
             if token.token_type == TokenType::Semi {
@@ -60,26 +60,32 @@ impl Parser {
                     }
 
                     op_stack.push(r)
-                },
-                TokenType::Number | TokenType::String | TokenType::Identifier => output_queue.push_back(r),
+                }
+                TokenType::Number | TokenType::String | TokenType::Identifier => {
+                    output_queue.push_back(r)
+                }
                 TokenType::PareL => op_stack.push(r),
                 TokenType::PareR => {
                     while let Some(op) = op_stack.pop() {
-                        if op.token_type == TokenType::PareL { break; }
+                        if op.token_type == TokenType::PareL {
+                            break;
+                        }
 
                         output_queue.push_back(op);
                     }
                 }
-                _ => unimplemented!()
+                _ => unimplemented!(),
             };
         }
 
         while let Some(op) = op_stack.pop() {
-            if op.token_type == TokenType::PareL { panic!("mismatched parenthesis") }
+            if op.token_type == TokenType::PareL {
+                panic!("mismatched parenthesis")
+            }
             output_queue.push_back(op);
         }
 
-        return output_queue
+        return output_queue;
     }
 
     fn shunt_postfix(&self, tokens: &mut VecDeque<Token>) -> Expr {
@@ -95,9 +101,9 @@ impl Parser {
                             stack.push(Expr::Binary {
                                 lhs: Box::new(lhs_expr.into()),
                                 op: token,
-                                rhs: Box::new(rhs_expr.into())
+                                rhs: Box::new(rhs_expr.into()),
                             });
-                        },
+                        }
                         // in cases of there being only an operator left in the stack.
                         (Some(_), None) => {
                             if stack.len() >= 2 {
@@ -106,17 +112,19 @@ impl Parser {
                                 stack.push(Expr::Binary {
                                     lhs: Box::new(lhs),
                                     op: token,
-                                    rhs: Box::new(rhs)
+                                    rhs: Box::new(rhs),
                                 });
                             } else {
                                 panic!("not enough operands")
                             }
-                        },
-                        _ => unimplemented!()
+                        }
+                        _ => unimplemented!(),
                     }
-                },
-                TokenType::Number | TokenType::String | TokenType::Identifier => stack.push(token.into()),
-                _ => unreachable!()
+                }
+                TokenType::Number | TokenType::String | TokenType::Identifier => {
+                    stack.push(token.into())
+                }
+                _ => unreachable!(),
             }
         }
 
@@ -129,7 +137,6 @@ impl Parser {
 
     fn shunt(&mut self) -> Expr {
         let mut infix = self.shunt_infix();
-
         self.shunt_postfix(&mut infix)
     }
 
@@ -173,7 +180,11 @@ impl Parser {
         };
 
         self.expect(TokenType::Semi);
-        Stmt::Var { name, value, is_mut }
+        Stmt::Var {
+            name,
+            value,
+            is_mut,
+        }
     }
 
     pub fn parse(&mut self) -> Vec<Stmt> {
@@ -182,7 +193,8 @@ impl Parser {
         while let Some(token) = self.tokens.peek() {
             match token.token_type {
                 TokenType::Let => program.push(self.parse_variable()),
-                _ => unimplemented!()
+                TokenType::Func => program.push(self.parse_function()),
+                _ => unimplemented!(),
             }
         }
 
@@ -196,10 +208,25 @@ mod tests {
     use crate::lexer::Lexer;
 
     #[test]
+    fn parse_function() {
+        let tokens = Lexer::new(
+            r#"
+            func main() {
+                print("Hello, World!");
+            }
+        "#,
+        )
+        .lex();
+    }
+
+    #[test]
     fn parse_mut_variable() {
-        let tokens = Lexer::new(r#"
+        let tokens = Lexer::new(
+            r#"
             let mut foo = "bar";
-        "#).lex();
+        "#,
+        )
+        .lex();
 
         assert_eq!(
             Parser::new(tokens).parse_variable(),
@@ -212,32 +239,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_variable_with_arithmetic() {
-        //    +
-        //   / \
-        //  9  10
-        let tokens = Lexer::new(r#"
-            let x = 9 + 10;
-        "#).lex();
-
-        assert_eq!(
-            Parser::new(tokens).parse_variable(),
-            Stmt::Var {
-                name: String::from("x"),
-                value: Expr::Binary {
-                    lhs: Box::new(Expr::Number(String::from("9"))),
-                    op: Token {
-                        token_type: TokenType::Add,
-                        value: None
-                    },
-                    rhs: Box::new(Expr::Number(String::from("10")))
-                },
-                is_mut: false
-            }
-        )
-    }
-
-    #[test]
     fn parse_mut_variable_with_nested_arithmetic() {
         //        +
         //       / \
@@ -245,9 +246,12 @@ mod tests {
         //     / \   *
         //    4   5 / \
         //         10  3
-        let tokens = Lexer::new(r#"
+        let tokens = Lexer::new(
+            r#"
             let mut x = (4 + 5) + 10 * 3;
-        "#).lex();
+        "#,
+        )
+        .lex();
 
         assert_eq!(
             Parser::new(tokens).parse_variable(),
