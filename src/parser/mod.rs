@@ -12,6 +12,7 @@ pub struct Parser {
     tokens: Buffer,
 }
 
+#[allow(unused)]
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Parser {
         Parser {
@@ -40,8 +41,8 @@ impl Parser {
     }
 
     fn shunt_infix(&mut self) -> VecDeque<Token> {
-        let mut output_queue = VecDeque::<Token>::new();
-        let mut op_stack = Vec::<Token>::new();
+        let mut output_stack = VecDeque::<Token>::new();
+        let mut operand_stack = Vec::<Token>::new();
 
         while let Some(token) = self.tokens.peek() {
             if token.token_type == TokenType::Semi {
@@ -52,84 +53,65 @@ impl Parser {
 
             match r.token_type {
                 ref t if t.is_op() => {
-                    if let Some(top_op) = op_stack.last() {
+                    if let Some(top_op) = operand_stack.last() {
                         if top_op.token_type.precedence() >= t.precedence() {
-                            output_queue.push_back(op_stack.pop().unwrap());
+                            output_stack.push_back(operand_stack.pop().unwrap());
                             continue;
                         }
                     }
 
-                    op_stack.push(r)
+                    operand_stack.push(r)
                 }
-                TokenType::Number | TokenType::String | TokenType::Identifier => {
-                    output_queue.push_back(r)
+                TokenType::Number | TokenType::String | TokenType::Float => {
+                    output_stack.push_back(r)
                 }
-                TokenType::PareL => op_stack.push(r),
+                TokenType::Identifier => output_stack.push_back(r),
+                TokenType::PareL => operand_stack.push(r),
                 TokenType::PareR => {
-                    while let Some(op) = op_stack.pop() {
+                    while let Some(op) = operand_stack.pop() {
                         if op.token_type == TokenType::PareL {
                             break;
                         }
 
-                        output_queue.push_back(op);
+                        output_stack.push_back(op);
                     }
                 }
                 _ => unimplemented!(),
             };
         }
 
-        while let Some(op) = op_stack.pop() {
+        while let Some(op) = operand_stack.pop() {
             if op.token_type == TokenType::PareL {
                 panic!("mismatched parenthesis")
             }
-            output_queue.push_back(op);
+
+            output_stack.push_back(op);
         }
 
-        return output_queue;
+        return output_stack;
     }
 
     fn shunt_postfix(&self, tokens: &mut VecDeque<Token>) -> Expr {
-        let mut stack = Vec::<Expr>::new();
+        let mut stack = Vec::new();
 
         while let Some(token) = tokens.pop_front() {
             match token.token_type {
                 ref t if t.is_op() => {
-                    let (rhs, lhs) = (stack.pop(), stack.pop());
+                    let rhs = stack.pop().expect("not enough operands");
+                    let lhs = stack.pop().expect("not enough operands");
 
-                    match (lhs, rhs) {
-                        (Some(lhs_expr), Some(rhs_expr)) => {
-                            stack.push(Expr::Binary {
-                                lhs: Box::new(lhs_expr.into()),
-                                op: token,
-                                rhs: Box::new(rhs_expr.into()),
-                            });
-                        }
-                        // in cases of there being only an operator left in the stack.
-                        (Some(_), None) => {
-                            if stack.len() >= 2 {
-                                let (lhs, rhs) = (stack.pop().unwrap(), stack.pop().unwrap());
-
-                                stack.push(Expr::Binary {
-                                    lhs: Box::new(lhs),
-                                    op: token,
-                                    rhs: Box::new(rhs),
-                                });
-                            } else {
-                                panic!("not enough operands")
-                            }
-                        }
-                        _ => unimplemented!(),
-                    }
+                    stack.push(Expr::Binary {
+                        lhs: Box::new(lhs),
+                        op: token,
+                        rhs: Box::new(rhs),
+                    });
                 }
-                TokenType::Number | TokenType::String | TokenType::Identifier => {
-                    stack.push(token.into())
-                }
-                _ => unreachable!(),
+                _ => stack.push(token.into()),
             }
         }
 
         if stack.len() > 1 {
-            panic!("invalid expression, there are remaining in the stack")
+            panic!("invalid expression, remaining operands in the stack");
         }
 
         stack.pop().unwrap()
@@ -137,49 +119,40 @@ impl Parser {
 
     fn shunt(&mut self) -> Expr {
         let mut infix = self.shunt_infix();
+
         self.shunt_postfix(&mut infix)
     }
 
-    fn parse_variable(&mut self) -> Stmt {
+    fn call(&mut self, name: String) -> Stmt {
+        self.expect(TokenType::PareL);
+        self.tokens.consume();
+
+        let mut args = Vec::new();
+
+        while let Some(token) = self.tokens.peek() {
+            if token.token_type != TokenType::PareR {
+                if token.token_type == TokenType::Comma {
+                    continue;
+                }
+
+                args.push(self.shunt());
+            }
+        }
+
+        self.expect(TokenType::Semi);
+        Stmt::Call { name, args }
+    }
+
+    fn variable(&mut self) -> Stmt {
         self.expect(TokenType::Let);
         let is_mut = self.try_expect(&TokenType::Mut).is_some();
 
-        // TODO: this will only accept a single identifier (var name) with the current logic.
-        // Which is fine, but soon, I'd prefer it if it could do additional functionality, I.E.
-        // Destructuring the item, whether its a tuple, enum or a struct.
-        //
-        // I'm not implementing it currently as I don't even have the fundamental datatypes
-        // implemented currently, but I plan to rectify that in the future.
         let name = self.expect(TokenType::Identifier).value.unwrap();
 
         self.expect(TokenType::Equals);
-        let value: Expr = 'var: {
-            let val = self.tokens.consume().unwrap();
-
-            if let Some(token) = self.tokens.peek() {
-                if token.token_type != TokenType::Semi {
-                    // To make this work first, I need to parse the "scopes" (the brackets)
-                    // then parse the characters until it hits the `;` or error if an `\n` occurs before,
-                    // after which, I build the AST from. An rough output would be like this:
-                    // ((1 + 2) + 2) * 10 / 2
-                    //
-                    // would be:
-                    //        *
-                    //       / \
-                    //      +   \
-                    //     / \   ÷
-                    //    +   2 / \
-                    //   / \   10  2
-                    //  1   2
-                    self.tokens.tokens.push_front(val);
-                    break 'var self.shunt();
-                }
-            }
-
-            val.into()
-        };
-
+        let value = self.shunt();
         self.expect(TokenType::Semi);
+
         Stmt::Var {
             name,
             value,
@@ -192,8 +165,7 @@ impl Parser {
 
         while let Some(token) = self.tokens.peek() {
             match token.token_type {
-                TokenType::Let => program.push(self.parse_variable()),
-                TokenType::Func => program.push(self.parse_function()),
+                TokenType::Let => program.push(self.variable()),
                 _ => unimplemented!(),
             }
         }
@@ -208,18 +180,6 @@ mod tests {
     use crate::lexer::Lexer;
 
     #[test]
-    fn parse_function() {
-        let tokens = Lexer::new(
-            r#"
-            func main() {
-                print("Hello, World!");
-            }
-        "#,
-        )
-        .lex();
-    }
-
-    #[test]
     fn parse_mut_variable() {
         let tokens = Lexer::new(
             r#"
@@ -229,7 +189,7 @@ mod tests {
         .lex();
 
         assert_eq!(
-            Parser::new(tokens).parse_variable(),
+            Parser::new(tokens).variable(),
             Stmt::Var {
                 name: String::from("foo"),
                 value: Expr::String("bar".to_string()),
@@ -254,7 +214,7 @@ mod tests {
         .lex();
 
         assert_eq!(
-            Parser::new(tokens).parse_variable(),
+            Parser::new(tokens).variable(),
             Stmt::Var {
                 name: String::from("x"),
                 value: Expr::Binary {

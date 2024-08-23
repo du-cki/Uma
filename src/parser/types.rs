@@ -5,7 +5,7 @@ pub enum Expr {
     Binary {
         lhs: Box<Expr>,
         op: Token,
-        rhs: Box<Expr>
+        rhs: Box<Expr>,
     },
     Identifier(String),
     Number(String),
@@ -18,23 +18,26 @@ pub enum Stmt {
     Var {
         name: String,
         value: Expr,
-        is_mut: bool
+        is_mut: bool,
+    },
+    Call {
+        name: String,
+        args: Vec<Expr>,
     },
     Func {
         arguments: Vec<Expr>,
-        body: Block
+        body: Block,
     },
     If {
         cnt: (Expr, Block),
-        else_block: Option<Block>
-    }
+        else_block: Option<Block>,
+    },
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Block {
-    stmts: Vec<Stmt>
+    stmts: Vec<Stmt>,
 }
-
 
 impl Into<Expr> for Token {
     fn into(self) -> Expr {
@@ -43,8 +46,10 @@ impl Into<Expr> for Token {
             TokenType::Number => Expr::Number(self.value.unwrap()),
             TokenType::Float => Expr::Float(self.value.unwrap()),
             TokenType::Identifier => Expr::Identifier(self.value.unwrap()),
-            other => unimplemented!("got unimplemented `Token` while converting `Token` to an `Expr`: {:#?}", other),
+            other => unimplemented!(
+                "got unimplemented `Token` while converting `Token` to an `Expr`: {:#?}",
+                other
+            ),
         }
     }
 }
-
