@@ -24,7 +24,14 @@ impl Parser {
         let token = self.buffer.consume();
 
         match token.kind {
-            TokenKind::String | TokenKind::Number | TokenKind::Float | TokenKind::Identifier => {
+            TokenKind::String | TokenKind::Number | TokenKind::Float => Box::new(token.into()),
+            TokenKind::Identifier => {
+                if let Some(peeked) = self.buffer.peek() {
+                    if peeked.kind == TokenKind::PareL {
+                        return self.call(token.value.clone().unwrap());
+                    }
+                }
+
                 Box::new(token.into())
             }
             TokenKind::PareL => {
@@ -64,6 +71,19 @@ impl Parser {
         expr
     }
 
+    pub fn parse(&mut self) -> Vec<Stmt> {
+        let mut program: Vec<Stmt> = Vec::new();
+
+        while let Some(token) = self.buffer.peek() {
+            match token.kind {
+                TokenKind::Let => program.push(self.variable()),
+                _ => unimplemented!(),
+            }
+        }
+
+        program
+    }
+
     fn variable(&mut self) -> Stmt {
         self.buffer.expect(TokenKind::Let);
 
@@ -81,17 +101,27 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Vec<Stmt> {
-        let mut program: Vec<Stmt> = Vec::new();
+    fn call(&mut self, name: String) -> Box<Expr> {
+        self.buffer.expect(TokenKind::PareL);
 
-        while let Some(token) = self.buffer.peek() {
-            match token.kind {
-                TokenKind::Let => program.push(self.variable()),
-                _ => unimplemented!(),
-            }
+        if let Some(token) = self.buffer.try_expect(&TokenKind::PareR) {
+            return Box::new(Expr::Call { name, args: vec![] });
         }
 
-        program
+        let mut args = Vec::<Box<Expr>>::new();
+
+        loop {
+            let arg = self.expr();
+            args.push(arg);
+
+            if let Some(token) = self.buffer.try_expect(&TokenKind::PareR) {
+                break;
+            }
+
+            self.buffer.expect(TokenKind::Comma);
+        }
+
+        Box::new(Expr::Call { name, args })
     }
 }
 
@@ -123,7 +153,7 @@ mod tests {
     fn parse_basic_arithmetic() {
         let tokens = Lexer::new(
             r#"
-            let foo = 9 + 10 * 3;
+            let foo = 9 + 10 * round(3.14);
         "#,
         )
         .lex();
@@ -144,7 +174,10 @@ mod tests {
                             kind: TokenKind::Multi,
                             value: None
                         },
-                        rhs: Box::new(Expr::Number("3".to_string()))
+                        rhs: Box::new(Expr::Call {
+                            name: "round".to_string(),
+                            args: vec![Box::new(Expr::Float("3.14".to_string()))]
+                        })
                     })
                 }),
                 is_mut: false

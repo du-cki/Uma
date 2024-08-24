@@ -7,6 +7,10 @@ pub enum Expr {
         op: Token,
         rhs: Box<Expr>,
     },
+    Call {
+        name: String,
+        args: Vec<Box<Expr>>,
+    },
     Identifier(String),
     Number(String),
     Float(String),
