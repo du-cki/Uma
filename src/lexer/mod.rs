@@ -1,34 +1,34 @@
 mod tokens;
 mod utils;
 
-pub use self::tokens::TokenType;
+pub use self::tokens::TokenKind;
 
 pub use self::utils::Buffer;
 
 #[derive(Debug, PartialEq)]
 pub struct Token {
-    pub token_type: TokenType,
+    pub kind: TokenKind,
     pub value: Option<String>,
 }
 
 fn match_keyword_to_token(keyword: &str) -> Option<Token> {
     let token = {
         match keyword {
-            "let" => Some(TokenType::Let),
-            "mut" => Some(TokenType::Mut),
-            "if" => Some(TokenType::If),
-            "else" => Some(TokenType::Else),
-            "func" => Some(TokenType::Func),
-            "return" => Some(TokenType::Return),
-            "true" => Some(TokenType::True),
-            "false" => Some(TokenType::False),
-            "none" => Some(TokenType::None),
+            "let" => Some(TokenKind::Let),
+            "mut" => Some(TokenKind::Mut),
+            "if" => Some(TokenKind::If),
+            "else" => Some(TokenKind::Else),
+            "func" => Some(TokenKind::Func),
+            "return" => Some(TokenKind::Return),
+            "true" => Some(TokenKind::True),
+            "false" => Some(TokenKind::False),
+            "none" => Some(TokenKind::None),
             _ => None,
         }
     };
 
     Some(Token {
-        token_type: token?,
+        kind: token?,
         value: None,
     })
 }
@@ -44,7 +44,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn parse_idx_or_kw(&mut self) -> Token {
+    fn parse_identifier_or_keyword(&mut self) -> Token {
         let mut out = String::new();
 
         while self.buffer.current.is_alphanumeric() || self.buffer.current == '_' {
@@ -53,7 +53,7 @@ impl<'a> Lexer<'a> {
         }
 
         match_keyword_to_token(&out).unwrap_or(Token {
-            token_type: TokenType::Identifier,
+            kind: TokenKind::Identifier,
             value: Some(out),
         })
     }
@@ -85,12 +85,12 @@ impl<'a> Lexer<'a> {
         if out.contains('.') {
             Token {
                 value: Some(out),
-                token_type: TokenType::Float,
+                kind: TokenKind::Float,
             }
         } else {
             Token {
                 value: Some(out),
-                token_type: TokenType::Number,
+                kind: TokenKind::Number,
             }
         }
     }
@@ -124,28 +124,28 @@ impl<'a> Lexer<'a> {
 
         Token {
             value: Some(out),
-            token_type: TokenType::String,
+            kind: TokenKind::String,
         }
     }
 
     fn parse_character(&mut self) -> Token {
-        let token_type = {
+        let kind = {
             match self.buffer.current {
-                ';' => TokenType::Semi,
-                '=' => TokenType::Equals,
-                '.' => TokenType::Dot,
-                ',' => TokenType::Comma,
-                '{' => TokenType::BraceL,
-                '}' => TokenType::BraceR,
-                '(' => TokenType::PareL,
-                ')' => TokenType::PareR,
-                '[' => TokenType::BracketL,
-                ']' => TokenType::BracketR,
-                '+' => TokenType::Add,
-                '-' => TokenType::Sub,
-                '/' => TokenType::Div,
-                '*' => TokenType::Multi,
-                '^' => TokenType::Expo,
+                ';' => TokenKind::Semi,
+                '=' => TokenKind::Equals,
+                '.' => TokenKind::Dot,
+                ',' => TokenKind::Comma,
+                '{' => TokenKind::BraceL,
+                '}' => TokenKind::BraceR,
+                '(' => TokenKind::PareL,
+                ')' => TokenKind::PareR,
+                '[' => TokenKind::BracketL,
+                ']' => TokenKind::BracketR,
+                '+' => TokenKind::Add,
+                '-' => TokenKind::Sub,
+                '/' => TokenKind::Div,
+                '*' => TokenKind::Multi,
+                '^' => TokenKind::Expo,
                 _ => panic!(
                     "Unexpected character `{}` found while parsing.",
                     self.buffer.current
@@ -153,10 +153,7 @@ impl<'a> Lexer<'a> {
             }
         };
 
-        Token {
-            value: None,
-            token_type,
-        }
+        Token { value: None, kind }
     }
 
     pub fn lex(&mut self) -> Vec<Token> {
@@ -166,7 +163,7 @@ impl<'a> Lexer<'a> {
             let curr = self.buffer.current;
 
             match curr {
-                'a'..='z' | 'A'..='Z' | '_' => tokens.push(self.parse_idx_or_kw()),
+                'a'..='z' | 'A'..='Z' | '_' => tokens.push(self.parse_identifier_or_keyword()),
                 '0'..='9' => tokens.push(self.parse_number()),
                 '\'' | '"' => tokens.push(self.parse_string(curr)),
                 c if c.is_whitespace() => {
@@ -203,47 +200,47 @@ mod tests {
             lexed,
             vec![
                 Token {
-                    token_type: TokenType::Func,
+                    kind: TokenKind::Func,
                     value: None
                 },
                 Token {
-                    token_type: TokenType::Identifier,
+                    kind: TokenKind::Identifier,
                     value: Some("main".to_string())
                 },
                 Token {
-                    token_type: TokenType::PareL,
+                    kind: TokenKind::PareL,
                     value: None,
                 },
                 Token {
-                    token_type: TokenType::PareR,
+                    kind: TokenKind::PareR,
                     value: None
                 },
                 Token {
-                    token_type: TokenType::BraceL,
+                    kind: TokenKind::BraceL,
                     value: None
                 },
                 Token {
-                    token_type: TokenType::Identifier,
+                    kind: TokenKind::Identifier,
                     value: Some("print".to_string())
                 },
                 Token {
-                    token_type: TokenType::PareL,
+                    kind: TokenKind::PareL,
                     value: None
                 },
                 Token {
-                    token_type: TokenType::String,
+                    kind: TokenKind::String,
                     value: Some("Hello, World!".to_string())
                 },
                 Token {
-                    token_type: TokenType::PareR,
+                    kind: TokenKind::PareR,
                     value: None
                 },
                 Token {
-                    token_type: TokenType::Semi,
+                    kind: TokenKind::Semi,
                     value: None
                 },
                 Token {
-                    token_type: TokenType::BraceR,
+                    kind: TokenKind::BraceR,
                     value: None
                 },
             ]
@@ -263,23 +260,23 @@ mod tests {
             lexed,
             vec![
                 Token {
-                    token_type: TokenType::Let,
+                    kind: TokenKind::Let,
                     value: None
                 },
                 Token {
-                    token_type: TokenType::Identifier,
+                    kind: TokenKind::Identifier,
                     value: Some("x".to_string())
                 },
                 Token {
-                    token_type: TokenType::Equals,
+                    kind: TokenKind::Equals,
                     value: None
                 },
                 Token {
-                    token_type: TokenType::String,
+                    kind: TokenKind::String,
                     value: Some("Hello, World!".to_string())
                 },
                 Token {
-                    token_type: TokenType::Semi,
+                    kind: TokenKind::Semi,
                     value: None
                 },
             ]
@@ -293,7 +290,7 @@ mod tests {
         assert_eq!(
             parsed_int.parse_number(),
             Token {
-                token_type: TokenType::Number,
+                kind: TokenKind::Number,
                 value: Some("1000000".to_string())
             }
         );
@@ -312,7 +309,7 @@ mod tests {
         assert_eq!(
             parsed_float,
             Token {
-                token_type: TokenType::Float,
+                kind: TokenKind::Float,
                 value: Some("3.14156".to_string())
             }
         )
@@ -325,7 +322,7 @@ mod tests {
         assert_eq!(
             parsed,
             Token {
-                token_type: TokenType::String,
+                kind: TokenKind::String,
                 value: Some("Hello\n\\n,\'\"\" World!!".to_string())
             }
         )

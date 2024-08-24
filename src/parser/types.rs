@@ -1,4 +1,4 @@
-use crate::lexer::{Token, TokenType};
+use crate::lexer::{Token, TokenKind};
 
 #[derive(Debug, PartialEq)]
 pub enum Expr {
@@ -17,7 +17,7 @@ pub enum Expr {
 pub enum Stmt {
     Var {
         name: String,
-        value: Expr,
+        value: Box<Expr>,
         is_mut: bool,
     },
     Call {
@@ -41,15 +41,12 @@ pub struct Block {
 
 impl Into<Expr> for Token {
     fn into(self) -> Expr {
-        match self.token_type {
-            TokenType::String => Expr::String(self.value.unwrap()),
-            TokenType::Number => Expr::Number(self.value.unwrap()),
-            TokenType::Float => Expr::Float(self.value.unwrap()),
-            TokenType::Identifier => Expr::Identifier(self.value.unwrap()),
-            other => unimplemented!(
-                "got unimplemented `Token` while converting `Token` to an `Expr`: {:#?}",
-                other
-            ),
+        match self.kind {
+            TokenKind::String => Expr::String(self.value.unwrap()),
+            TokenKind::Number => Expr::Number(self.value.unwrap()),
+            TokenKind::Float => Expr::Float(self.value.unwrap()),
+            TokenKind::Identifier => Expr::Identifier(self.value.unwrap()),
+            ref other => panic!("cannot convert `{:#?}` to an `Expr`: {:#?}", self, other),
         }
     }
 }
