@@ -27,6 +27,11 @@ impl Parser {
             TokenKind::String | TokenKind::Number | TokenKind::Float | TokenKind::Identifier => {
                 Box::new(token.into())
             }
+            TokenKind::PareL => {
+                let expr = self.expr();
+                self.buffer.expect(TokenKind::PareR);
+                expr
+            }
             token => unimplemented!(),
         }
     }
@@ -41,7 +46,7 @@ impl Parser {
 
             let mut rhs = self.primary();
             if let Some(token) = self.buffer.peek() {
-                if token.kind.precedence() < op.kind.precedence() {
+                if op.kind.precedence() < token.kind.precedence() {
                     rhs = self.parse_expr(rhs, op.kind.precedence() + 1);
                 }
             }
@@ -118,7 +123,7 @@ mod tests {
     fn parse_basic_arithmetic() {
         let tokens = Lexer::new(
             r#"
-            let foo = 9 + 10;
+            let foo = 9 + 10 * 3;
         "#,
         )
         .lex();
@@ -133,7 +138,14 @@ mod tests {
                         kind: TokenKind::Add,
                         value: None
                     },
-                    rhs: Box::new(Expr::Number("10".to_string()))
+                    rhs: Box::new(Expr::Binary {
+                        lhs: Box::new(Expr::Number("10".to_string())),
+                        op: Token {
+                            kind: TokenKind::Multi,
+                            value: None
+                        },
+                        rhs: Box::new(Expr::Number("3".to_string()))
+                    })
                 }),
                 is_mut: false
             }
