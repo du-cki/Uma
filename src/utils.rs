@@ -1,5 +1,3 @@
-use crate::lexer::Buffer;
-
 // #[macro_export]
 // macro_rules! parse_error {
 //     ( $buffer:ident ) => (

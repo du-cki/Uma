@@ -24,13 +24,14 @@ pub enum Stmt {
         value: Box<Expr>,
         is_mut: bool,
     },
+    Func {
+        name: String,
+        args: Vec<String>,
+        body: Block,
+    },
     Call {
         name: String,
         args: Vec<Expr>,
-    },
-    Func {
-        arguments: Vec<Expr>,
-        body: Block,
     },
     If {
         cnt: (Expr, Block),
@@ -40,7 +41,7 @@ pub enum Stmt {
 
 #[derive(Debug, PartialEq)]
 pub struct Block {
-    stmts: Vec<Stmt>,
+    pub stmts: Vec<Stmt>,
 }
 
 impl Into<Expr> for Token {

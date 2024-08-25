@@ -37,12 +37,11 @@ impl Buffer {
     }
 
     pub fn expect(&mut self, kind: TokenKind) -> Token {
-        let n = self.try_expect(&kind);
-        if let Some(next_token) = n {
+        if let Some(next_token) = self.try_expect(&kind) {
             return next_token;
         }
 
         // TODO: better error handling
-        panic!("Unexpected token encountered, expected: `{kind:#?}` but got: {n:#?}");
+        panic!("Unexpected token encountered, expected: `{kind:#?}`");
     }
 }

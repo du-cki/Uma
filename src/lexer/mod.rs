@@ -5,7 +5,7 @@ pub use self::tokens::TokenKind;
 
 pub use self::utils::Buffer;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub value: Option<String>,

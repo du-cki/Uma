@@ -1,7 +1,7 @@
 mod types;
 mod utils;
 
-use std::collections::VecDeque;
+use types::Block;
 
 use crate::lexer::{Token, TokenKind};
 
@@ -39,11 +39,11 @@ impl Parser {
                 self.buffer.expect(TokenKind::PareR);
                 expr
             }
-            token => unimplemented!(),
+            token => panic!("Unexpected token: {:?}", token),
         }
     }
 
-    fn parse_expr(&mut self, mut lhs: Box<Expr>, precedence: i8) -> Box<Expr> {
+    fn binary(&mut self, mut lhs: Box<Expr>, precedence: i8) -> Box<Expr> {
         while let Some(token) = self.buffer.peek() {
             if token.kind.precedence() < precedence {
                 return lhs;
@@ -54,7 +54,7 @@ impl Parser {
             let mut rhs = self.primary();
             if let Some(token) = self.buffer.peek() {
                 if op.kind.precedence() < token.kind.precedence() {
-                    rhs = self.parse_expr(rhs, op.kind.precedence() + 1);
+                    rhs = self.binary(rhs, op.kind.precedence() + 1);
                 }
             }
 
@@ -66,22 +66,37 @@ impl Parser {
 
     fn expr(&mut self) -> Box<Expr> {
         let mut primary = self.primary();
-        let expr = self.parse_expr(primary, 0);
+        let expr = self.binary(primary, 0);
 
         expr
     }
 
-    pub fn parse(&mut self) -> Vec<Stmt> {
-        let mut program: Vec<Stmt> = Vec::new();
+    fn block(&mut self) -> Block {
+        self.buffer.expect(TokenKind::BraceL);
 
-        while let Some(token) = self.buffer.peek() {
-            match token.kind {
-                TokenKind::Let => program.push(self.variable()),
-                _ => unimplemented!(),
+        let mut stmts = Vec::<Stmt>::new();
+
+        while let Some(token) = self.buffer.peek().cloned() {
+            if token.kind == TokenKind::BraceR {
+                break;
             }
+
+            stmts.push(self.stmt(token));
         }
 
-        program
+        self.buffer.expect(TokenKind::BraceR);
+
+        Block { stmts }
+    }
+
+    fn stmt(&mut self, token: Token) -> Stmt {
+        let stmt = match token.kind {
+            TokenKind::Let => self.variable(),
+            TokenKind::Func => self.function(),
+            _ => unimplemented!("Unexpected token: {:?}", token.kind),
+        };
+
+        stmt
     }
 
     fn variable(&mut self) -> Stmt {
@@ -118,15 +133,32 @@ impl Parser {
                 break;
             }
 
-            self.buffer.expect(TokenKind::Comma);
+            self.buffer.try_expect(&TokenKind::Comma);
         }
 
         Box::new(Expr::Call { name, args })
+    }
+
+    fn function(&mut self) -> Stmt {
+        self.buffer.expect(TokenKind::Func);
+
+        let name = self.buffer.expect(TokenKind::Identifier).value.unwrap();
+
+        self.buffer.expect(TokenKind::PareL);
+        let mut args = Vec::<String>::new();
+        self.buffer.expect(TokenKind::PareR);
+
+        let body = self.block();
+        self.buffer.try_expect(&TokenKind::Semi);
+
+        Stmt::Func { name, args, body }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use types::Block;
+
     use super::*;
     use crate::lexer::Lexer;
 
@@ -187,12 +219,6 @@ mod tests {
 
     #[test]
     fn parse_mut_variable_with_nested_arithmetic() {
-        //        +
-        //       / \
-        //      +   \
-        //     / \   *
-        //    4   5 / \
-        //         10  3
         let tokens = Lexer::new(
             r#"
             let mut x = (4 + 5) + 10 * 3;
@@ -227,6 +253,33 @@ mod tests {
                     })
                 }),
                 is_mut: true
+            }
+        )
+    }
+
+    #[test]
+    fn parse_function_body() {
+        let tokens = Lexer::new(
+            r#"
+            func main() {
+                let mut x = 10;
+            }
+        "#,
+        )
+        .lex();
+
+        assert_eq!(
+            Parser::new(tokens).function(),
+            Stmt::Func {
+                name: "main".to_string(),
+                args: vec![],
+                body: Block {
+                    stmts: vec![Stmt::Var {
+                        name: "x".to_string(),
+                        value: Box::new(Expr::Number("10".to_string())),
+                        is_mut: true
+                    }]
+                }
             }
         )
     }
