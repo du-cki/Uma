@@ -133,7 +133,7 @@ impl Parser {
                 break;
             }
 
-            self.buffer.try_expect(&TokenKind::Comma);
+            self.buffer.expect(TokenKind::Comma);
         }
 
         Box::new(Expr::Call { name, args })
