@@ -20,11 +20,11 @@ impl Parser {
         }
     }
 
-    fn primary(&mut self) -> Box<Expr> {
+    fn primary(&mut self) -> Stmt {
         let token = self.buffer.consume();
 
         match token.kind {
-            TokenKind::String | TokenKind::Number | TokenKind::Float => Box::new(token.into()),
+            TokenKind::String | TokenKind::Number | TokenKind::Float => Stmt::Expr(token.into()),
             TokenKind::Identifier => {
                 if let Some(peeked) = self.buffer.peek() {
                     if peeked.kind == TokenKind::PareL {
@@ -32,18 +32,19 @@ impl Parser {
                     }
                 }
 
-                Box::new(token.into())
+                Stmt::Expr(token.into())
             }
             TokenKind::PareL => {
                 let expr = self.expr();
                 self.buffer.expect(TokenKind::PareR);
+
                 expr
             }
             token => panic!("Unexpected token: {:?}", token),
         }
     }
 
-    fn binary(&mut self, mut lhs: Box<Expr>, precedence: i8) -> Box<Expr> {
+    fn binary(&mut self, mut lhs: Stmt, precedence: i8) -> Stmt {
         while let Some(token) = self.buffer.peek() {
             if token.kind.precedence() < precedence {
                 return lhs;
@@ -58,13 +59,17 @@ impl Parser {
                 }
             }
 
-            lhs = Box::new(Expr::Binary { lhs, op, rhs });
+            lhs = Stmt::Expr(Expr::Binary {
+                lhs: lhs.into(),
+                op,
+                rhs: rhs.into(),
+            });
         }
 
         lhs
     }
 
-    fn expr(&mut self) -> Box<Expr> {
+    fn expr(&mut self) -> Stmt {
         let mut primary = self.primary();
         let expr = self.binary(primary, 0);
 
@@ -111,23 +116,23 @@ impl Parser {
 
         Stmt::Var {
             name,
-            value,
+            value: value.into(),
             is_mut,
         }
     }
 
-    fn call(&mut self, name: String) -> Box<Expr> {
+    fn call(&mut self, name: String) -> Stmt {
         self.buffer.expect(TokenKind::PareL);
 
         if let Some(token) = self.buffer.try_expect(&TokenKind::PareR) {
-            return Box::new(Expr::Call { name, args: vec![] });
+            return Stmt::Call { name, args: vec![] };
         }
 
-        let mut args = Vec::<Box<Expr>>::new();
+        let mut args = Vec::new();
 
         loop {
             let arg = self.expr();
-            args.push(arg);
+            args.push(arg.into());
 
             if let Some(token) = self.buffer.try_expect(&TokenKind::PareR) {
                 break;
@@ -136,7 +141,7 @@ impl Parser {
             self.buffer.expect(TokenKind::Comma);
         }
 
-        Box::new(Expr::Call { name, args })
+        Stmt::Call { name, args }
     }
 
     fn function(&mut self) -> Stmt {
@@ -175,7 +180,7 @@ mod tests {
             Parser::new(tokens).variable(),
             Stmt::Var {
                 name: String::from("foo"),
-                value: Box::new(Expr::String("bar".to_string())),
+                value: Expr::String(String::from("bar")).into(),
                 is_mut: true
             }
         )
@@ -194,24 +199,27 @@ mod tests {
             Parser::new(tokens).variable(),
             Stmt::Var {
                 name: String::from("foo"),
-                value: Box::new(Expr::Binary {
-                    lhs: Box::new(Expr::Number("9".to_string())),
+                value: Expr::Binary {
+                    lhs: Expr::Number(String::from("9")).into(),
                     op: Token {
                         kind: TokenKind::Add,
                         value: None
                     },
-                    rhs: Box::new(Expr::Binary {
-                        lhs: Box::new(Expr::Number("10".to_string())),
+                    rhs: Expr::Binary {
+                        lhs: Expr::Number(String::from("10")).into(),
                         op: Token {
                             kind: TokenKind::Multi,
                             value: None
                         },
-                        rhs: Box::new(Expr::Call {
-                            name: "round".to_string(),
-                            args: vec![Box::new(Expr::Float("3.14".to_string()))]
-                        })
-                    })
-                }),
+                        rhs: Stmt::Call {
+                            name: String::from("round"),
+                            args: vec![Expr::Float(String::from("3.14")).into()]
+                        }
+                        .into()
+                    }
+                    .into()
+                }
+                .into(),
                 is_mut: false
             }
         )
@@ -230,28 +238,31 @@ mod tests {
             Parser::new(tokens).variable(),
             Stmt::Var {
                 name: String::from("x"),
-                value: Box::new(Expr::Binary {
-                    lhs: Box::new(Expr::Binary {
-                        lhs: Box::new(Expr::Number("4".to_string())),
+                value: Expr::Binary {
+                    lhs: Expr::Binary {
+                        lhs: Expr::Number(String::from("4")).into(),
                         op: Token {
                             kind: TokenKind::Add,
                             value: None
                         },
-                        rhs: Box::new(Expr::Number("5".to_string()))
-                    }),
+                        rhs: Expr::Number(String::from("5")).into()
+                    }
+                    .into(),
                     op: Token {
                         kind: TokenKind::Add,
                         value: None
                     },
-                    rhs: Box::new(Expr::Binary {
-                        lhs: Box::new(Expr::Number("10".to_string())),
+                    rhs: Expr::Binary {
+                        lhs: Expr::Number(String::from("10")).into(),
                         op: Token {
                             kind: TokenKind::Multi,
                             value: None
                         },
-                        rhs: Box::new(Expr::Number("3".to_string()))
-                    })
-                }),
+                        rhs: Expr::Number(String::from("3")).into()
+                    }
+                    .into()
+                }
+                .into(),
                 is_mut: true
             }
         )
@@ -271,12 +282,12 @@ mod tests {
         assert_eq!(
             Parser::new(tokens).function(),
             Stmt::Func {
-                name: "main".to_string(),
+                name: String::from("main"),
                 args: vec![],
                 body: Block {
                     stmts: vec![Stmt::Var {
-                        name: "x".to_string(),
-                        value: Box::new(Expr::Number("10".to_string())),
+                        name: String::from("x"),
+                        value: Expr::Number(String::from("10")).into(),
                         is_mut: true
                     }]
                 }

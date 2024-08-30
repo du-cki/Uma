@@ -3,13 +3,9 @@ use crate::lexer::{Token, TokenKind};
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     Binary {
-        lhs: Box<Expr>,
+        lhs: Box<Stmt>,
         op: Token,
-        rhs: Box<Expr>,
-    },
-    Call {
-        name: String,
-        args: Vec<Box<Expr>>,
+        rhs: Box<Stmt>,
     },
     Identifier(String),
     Number(String),
@@ -21,7 +17,7 @@ pub enum Expr {
 pub enum Stmt {
     Var {
         name: String,
-        value: Box<Expr>,
+        value: Box<Stmt>,
         is_mut: bool,
     },
     Func {
@@ -31,12 +27,9 @@ pub enum Stmt {
     },
     Call {
         name: String,
-        args: Vec<Expr>,
+        args: Vec<Box<Stmt>>,
     },
-    If {
-        cnt: (Expr, Block),
-        else_block: Option<Block>,
-    },
+    Expr(Expr),
 }
 
 #[derive(Debug, PartialEq)]
@@ -53,5 +46,17 @@ impl Into<Expr> for Token {
             TokenKind::Identifier => Expr::Identifier(self.value.unwrap()),
             ref other => panic!("cannot convert `{:#?}` to an `Expr`: {:#?}", self, other),
         }
+    }
+}
+
+impl Into<Stmt> for Expr {
+    fn into(self) -> Stmt {
+        Stmt::Expr(self)
+    }
+}
+
+impl Into<Box<Stmt>> for Expr {
+    fn into(self) -> Box<Stmt> {
+        Box::new(self.into())
     }
 }
