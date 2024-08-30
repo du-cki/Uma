@@ -131,6 +131,7 @@ impl<'a> Lexer<'a> {
     fn parse_character(&mut self) -> Token {
         let kind = {
             match self.buffer.current {
+                ':' => TokenKind::Colon,
                 ';' => TokenKind::Semi,
                 '=' => TokenKind::Equals,
                 '.' => TokenKind::Dot,

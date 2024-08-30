@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::lexer::{Token, TokenKind};
 
 #[derive(Debug, PartialEq)]
@@ -22,13 +24,15 @@ pub enum Stmt {
     },
     Func {
         name: String,
-        args: Vec<String>,
+        args: HashMap<String, String>,
         body: Block,
     },
     Call {
         name: String,
         args: Vec<Box<Stmt>>,
     },
+    Empty,
+    Return(Box<Stmt>),
     Expr(Expr),
 }
 

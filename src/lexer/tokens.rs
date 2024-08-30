@@ -4,10 +4,9 @@ pub enum TokenKind {
     String,
     Number,
     Float,
+    None,
     True,
     False,
-    None,
-    Mut,
 
     PareL,    // (
     PareR,    // )
@@ -15,7 +14,7 @@ pub enum TokenKind {
     BraceR,   // }
     BracketL, // [
     BracketR, // ]
-    Sentinal,
+    Colon,
     Semi,
     Dot,
     Comma,
@@ -28,6 +27,7 @@ pub enum TokenKind {
     Div,
 
     Let,
+    Mut,
     If,
     Else,
     Return,
@@ -43,15 +43,6 @@ impl TokenKind {
             TT::Div | TT::Multi => 2,
             TT::Add | TT::Sub => 1,
             _ => -1,
-        }
-    }
-
-    pub fn is_op(&self) -> bool {
-        use TokenKind as TT;
-
-        match *self {
-            TT::Equals | TT::Expo | TT::Add | TT::Sub | TT::Multi | TT::Div => true,
-            _ => false,
         }
     }
 }

@@ -4,6 +4,7 @@ mod utils;
 use types::Block;
 
 use crate::lexer::{Token, TokenKind};
+use crate::mapping;
 
 use self::types::{Expr, Stmt};
 use self::utils::Buffer;
@@ -99,10 +100,21 @@ impl Parser {
         let stmt = match token.kind {
             TokenKind::Let => self.variable(),
             TokenKind::Func => self.function(),
-            _ => unimplemented!("Unexpected token: {:?}", token.kind),
+            TokenKind::Return => self.return_(),
+            TokenKind::Semi => Stmt::Empty,
+            _ => self.expr(),
         };
 
         stmt
+    }
+
+    fn return_(&mut self) -> Stmt {
+        self.buffer.expect(TokenKind::Return);
+        let expr = self.expr();
+
+        self.buffer.try_expect(&TokenKind::Semi);
+
+        Stmt::Return(expr.into())
     }
 
     fn variable(&mut self) -> Stmt {
@@ -113,7 +125,7 @@ impl Parser {
 
         self.buffer.expect(TokenKind::Equals);
         let value = self.expr();
-        self.buffer.expect(TokenKind::Semi);
+        self.buffer.try_expect(&TokenKind::Semi);
 
         Stmt::Var {
             name,
@@ -142,6 +154,8 @@ impl Parser {
             self.buffer.expect(TokenKind::Comma);
         }
 
+        self.buffer.try_expect(&TokenKind::Semi);
+
         Stmt::Call { name, args }
     }
 
@@ -151,8 +165,32 @@ impl Parser {
         let name = self.buffer.expect(TokenKind::Identifier).value.unwrap();
 
         self.buffer.expect(TokenKind::PareL);
-        let mut args = Vec::<String>::new();
-        self.buffer.expect(TokenKind::PareR);
+
+        let mut args = mapping!();
+
+        while let Some(arg) = self.buffer.try_expect(&TokenKind::Identifier) {
+            let name = arg.value.unwrap();
+
+            let type_ = {
+                if let Some(token) = self.buffer.try_expect(&TokenKind::Colon) {
+                    self.buffer.expect(TokenKind::Identifier).value.unwrap()
+                } else {
+                    String::from("any")
+                }
+            };
+
+            args.insert(name, type_);
+
+            if self.buffer.try_expect(&TokenKind::PareR).is_some() {
+                break;
+            }
+
+            self.buffer.expect(TokenKind::Comma);
+        }
+
+        if args.is_empty() {
+            self.buffer.expect(TokenKind::PareR);
+        }
 
         let body = self.block();
         self.buffer.try_expect(&TokenKind::Semi);
@@ -163,13 +201,13 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use types::Block;
-
     use super::*;
+
     use crate::lexer::Lexer;
+    use crate::mapping;
 
     #[test]
-    fn parse_mut_variable() {
+    fn mut_variable() {
         let tokens = Lexer::new(
             r#"
             let mut foo = "bar";
@@ -188,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_basic_arithmetic() {
+    fn basic_arithmetic() {
         let tokens = Lexer::new(
             r#"
             let foo = 9 + 10 * round(3.14);
@@ -227,7 +265,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_mut_variable_with_nested_arithmetic() {
+    fn mut_variable_with_nested_arithmetic() {
         let tokens = Lexer::new(
             r#"
             let mut x = (4 + 5) + 10 * 3;
@@ -270,11 +308,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_function_body() {
+    fn function_body() {
         let tokens = Lexer::new(
             r#"
             func main() {
-                let mut x = 10;
+                print("Hello, World!");
             }
         "#,
         )
@@ -284,13 +322,49 @@ mod tests {
             Parser::new(tokens).function(),
             Stmt::Func {
                 name: String::from("main"),
-                args: vec![],
+                args: mapping!(),
                 body: Block {
-                    stmts: vec![Stmt::Var {
-                        name: String::from("x"),
-                        value: Expr::Number(String::from("10")).into(),
-                        is_mut: true
-                    }]
+                    stmts: vec![Stmt::Call {
+                        name: String::from("print"),
+                        args: vec![Expr::String(String::from("Hello, World!")).into()]
+                    }
+                    .into()]
+                }
+            }
+        )
+    }
+
+    #[test]
+    fn function_args() {
+        let tokens = Lexer::new(
+            r#"
+            func sum(x: Int, y: Int) {
+                return x + y
+            }
+        "#,
+        )
+        .lex();
+
+        assert_eq!(
+            Parser::new(tokens).function(),
+            Stmt::Func {
+                name: String::from("sum"),
+                args: mapping!(
+                    "x" => "Int",
+                    "y" => "Int"
+                ),
+                body: Block {
+                    stmts: vec![Stmt::Return(
+                        Expr::Binary {
+                            lhs: Expr::Identifier(String::from("x")).into(),
+                            op: Token {
+                                kind: TokenKind::Add,
+                                value: None
+                            },
+                            rhs: Expr::Identifier(String::from("y")).into()
+                        }
+                        .into()
+                    )]
                 }
             }
         )
