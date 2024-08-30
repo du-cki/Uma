@@ -24,7 +24,7 @@ impl Parser {
         let token = self.buffer.consume();
 
         match token.kind {
-            TokenKind::String | TokenKind::Number | TokenKind::Float => Stmt::Expr(token.into()),
+            TokenKind::String | TokenKind::Number | TokenKind::Float => token.into(),
             TokenKind::Identifier => {
                 if let Some(peeked) = self.buffer.peek() {
                     if peeked.kind == TokenKind::PareL {
@@ -32,7 +32,7 @@ impl Parser {
                     }
                 }
 
-                Stmt::Expr(token.into())
+                token.into()
             }
             TokenKind::PareL => {
                 let expr = self.expr();
@@ -59,11 +59,12 @@ impl Parser {
                 }
             }
 
-            lhs = Stmt::Expr(Expr::Binary {
+            lhs = Expr::Binary {
                 lhs: lhs.into(),
                 op,
                 rhs: rhs.into(),
-            });
+            }
+            .into();
         }
 
         lhs

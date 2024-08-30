@@ -49,6 +49,12 @@ impl Into<Expr> for Token {
     }
 }
 
+impl Into<Stmt> for Token {
+    fn into(self) -> Stmt {
+        Stmt::Expr(self.into())
+    }
+}
+
 impl Into<Stmt> for Expr {
     fn into(self) -> Stmt {
         Stmt::Expr(self)
