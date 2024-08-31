@@ -173,9 +173,9 @@ impl Parser {
 
             let type_ = {
                 if let Some(token) = self.buffer.try_expect(&TokenKind::Colon) {
-                    self.buffer.expect(TokenKind::Identifier).value.unwrap()
+                    Some(self.buffer.expect(TokenKind::Identifier).value.unwrap())
                 } else {
-                    String::from("any")
+                    None
                 }
             };
 
@@ -350,8 +350,8 @@ mod tests {
             Stmt::Func {
                 name: String::from("sum"),
                 args: mapping!(
-                    "x" => "Int",
-                    "y" => "Int"
+                    String::from("x") => Some(String::from("Int")),
+                    String::from("y") => Some(String::from("Int"))
                 ),
                 body: Block {
                     stmts: vec![Stmt::Return(

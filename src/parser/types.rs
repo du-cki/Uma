@@ -24,7 +24,7 @@ pub enum Stmt {
     },
     Func {
         name: String,
-        args: HashMap<String, String>,
+        args: HashMap<String, Option<String>>,
         body: Block,
     },
     Call {
