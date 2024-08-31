@@ -171,7 +171,11 @@ impl Parser {
         while let Some(arg) = self.buffer.try_expect(&TokenKind::Identifier) {
             let name = arg.value.unwrap();
 
-            let type_ = {
+            if args.contains_key(&name) {
+                panic!("Duplicate argument: {}", name);
+            }
+
+            let r#type = {
                 if let Some(token) = self.buffer.try_expect(&TokenKind::Colon) {
                     Some(self.buffer.expect(TokenKind::Identifier).value.unwrap())
                 } else {
@@ -179,7 +183,7 @@ impl Parser {
                 }
             };
 
-            args.insert(name, type_);
+            args.insert(name, r#type);
 
             if self.buffer.try_expect(&TokenKind::PareR).is_some() {
                 break;

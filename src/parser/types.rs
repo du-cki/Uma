@@ -31,9 +31,9 @@ pub enum Stmt {
         name: String,
         args: Vec<Box<Stmt>>,
     },
-    Empty,
     Return(Box<Stmt>),
     Expr(Expr),
+    Empty,
 }
 
 #[derive(Debug, PartialEq)]
