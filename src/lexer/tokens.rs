@@ -34,6 +34,25 @@ pub enum TokenKind {
     Func,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub value: Option<String>,
+    pub line: usize,
+    pub column: usize,
+}
+
+impl Token {
+    pub fn new(kind: TokenKind, value: Option<String>, line: usize, column: usize) -> Token {
+        Token {
+            kind,
+            value,
+            line,
+            column,
+        }
+    }
+}
+
 impl TokenKind {
     pub fn precedence(&self) -> i8 {
         use TokenKind as TT;

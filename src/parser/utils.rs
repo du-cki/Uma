@@ -2,7 +2,6 @@ use std::collections::VecDeque;
 
 use crate::lexer::{Token, TokenKind};
 
-// don't really like redefining another Buffer, but I'll write a generic one whenever.
 pub(crate) struct Buffer {
     pub tokens: VecDeque<Token>,
 }

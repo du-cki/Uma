@@ -2,11 +2,10 @@ use std::str::Chars;
 
 pub struct Buffer<'a> {
     pub data: Chars<'a>,
-
     pub eof: bool,
     pub current: char,
-    pub ln: usize,
-    pub idx: usize
+    pub line: usize,
+    pub column: usize,
 }
 
 impl<'a> Buffer<'a> {
@@ -14,20 +13,12 @@ impl<'a> Buffer<'a> {
         let mut data = raw_data.chars();
         let current = data.next().unwrap_or('\0');
 
-        let eof = {
-            if current == '\0' {
-                true
-            } else {
-                false
-            }
-        };
-
         Buffer {
             data,
-            eof,
+            eof: current == '\0',
             current,
-            ln: 0,
-            idx: 0,
+            line: 1,
+            column: 0,
         }
     }
 
@@ -36,15 +27,17 @@ impl<'a> Buffer<'a> {
             None => {
                 self.eof = true;
                 return None;
-            },
-            Some(c) => c
+            }
+            Some(c) => c,
         };
 
         if c == '\n' {
-            self.ln += 1;
+            self.column = 0;
+            self.line += 1;
+        } else {
+            self.column += 1;
         }
 
-        self.idx += 1;
         self.current = c;
 
         Some(c)

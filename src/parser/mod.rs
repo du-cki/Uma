@@ -244,16 +244,10 @@ mod tests {
                 name: String::from("foo"),
                 value: Expr::Binary {
                     lhs: Expr::Number(String::from("9")).into(),
-                    op: Token {
-                        kind: TokenKind::Add,
-                        value: None
-                    },
+                    op: Token::new(TokenKind::Add, None, 1, 25),
                     rhs: Expr::Binary {
                         lhs: Expr::Number(String::from("10")).into(),
-                        op: Token {
-                            kind: TokenKind::Multi,
-                            value: None
-                        },
+                        op: Token::new(TokenKind::Multi, None, 1, 30),
                         rhs: Stmt::Call {
                             name: String::from("round"),
                             args: vec![Expr::Float(String::from("3.14")).into()]
@@ -284,23 +278,14 @@ mod tests {
                 value: Expr::Binary {
                     lhs: Expr::Binary {
                         lhs: Expr::Number(String::from("4")).into(),
-                        op: Token {
-                            kind: TokenKind::Add,
-                            value: None
-                        },
+                        op: Token::new(TokenKind::Add, None, 1, 28),
                         rhs: Expr::Number(String::from("5")).into()
                     }
                     .into(),
-                    op: Token {
-                        kind: TokenKind::Add,
-                        value: None
-                    },
+                    op: Token::new(TokenKind::Add, None, 1, 33),
                     rhs: Expr::Binary {
                         lhs: Expr::Number(String::from("10")).into(),
-                        op: Token {
-                            kind: TokenKind::Multi,
-                            value: None
-                        },
+                        op: Token::new(TokenKind::Multi, None, 1, 38),
                         rhs: Expr::Number(String::from("3")).into()
                     }
                     .into()
@@ -361,10 +346,7 @@ mod tests {
                     stmts: vec![Stmt::Return(
                         Expr::Binary {
                             lhs: Expr::Identifier(String::from("x")).into(),
-                            op: Token {
-                                kind: TokenKind::Add,
-                                value: None
-                            },
+                            op: Token::new(TokenKind::Add, None, 2, 26),
                             rhs: Expr::Identifier(String::from("y")).into()
                         }
                         .into()

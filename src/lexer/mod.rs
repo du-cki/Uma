@@ -1,17 +1,10 @@
 mod tokens;
 mod utils;
 
-pub use self::tokens::TokenKind;
-
+pub use self::tokens::{Token, TokenKind};
 pub use self::utils::Buffer;
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub value: Option<String>,
-}
-
-fn match_keyword_to_token(keyword: &str) -> Option<Token> {
+fn match_keyword_to_token(keyword: &str, line: usize, column: usize) -> Option<Token> {
     let token = {
         match keyword {
             "let" => Some(TokenKind::Let),
@@ -27,10 +20,7 @@ fn match_keyword_to_token(keyword: &str) -> Option<Token> {
         }
     };
 
-    Some(Token {
-        kind: token?,
-        value: None,
-    })
+    token.map(|kind| Token::new(kind, None, line, column))
 }
 
 pub struct Lexer<'a> {
@@ -47,19 +37,24 @@ impl<'a> Lexer<'a> {
     fn parse_identifier_or_keyword(&mut self) -> Token {
         let mut out = String::new();
 
+        let column = self.buffer.column;
+
         while self.buffer.current.is_alphanumeric() || self.buffer.current == '_' {
             out.push(self.buffer.current);
             self.buffer.next();
         }
 
-        match_keyword_to_token(&out).unwrap_or(Token {
-            kind: TokenKind::Identifier,
-            value: Some(out),
-        })
+        match_keyword_to_token(&out, self.buffer.line, column).unwrap_or(Token::new(
+            TokenKind::Identifier,
+            Some(out),
+            self.buffer.line,
+            column,
+        ))
     }
 
     fn parse_number(&mut self) -> Token {
         let mut out = String::new();
+        let column = self.buffer.column;
 
         while self.buffer.current.is_ascii_digit()
             || self.buffer.current == '_'
@@ -79,25 +74,22 @@ impl<'a> Lexer<'a> {
             }
 
             out.push(curr);
+
             self.buffer.next();
         }
 
         if out.contains('.') {
-            Token {
-                value: Some(out),
-                kind: TokenKind::Float,
-            }
+            Token::new(TokenKind::Float, Some(out), self.buffer.line, column)
         } else {
-            Token {
-                value: Some(out),
-                kind: TokenKind::Number,
-            }
+            Token::new(TokenKind::Number, Some(out), self.buffer.line, column)
         }
     }
 
     fn parse_string(&mut self, delimeter: char) -> Token {
         let mut out = String::new();
         self.buffer.next();
+
+        let column = self.buffer.column - 1;
 
         while self.buffer.current != delimeter {
             if self.buffer.current == '\\' {
@@ -122,10 +114,7 @@ impl<'a> Lexer<'a> {
 
         self.buffer.next();
 
-        Token {
-            value: Some(out),
-            kind: TokenKind::String,
-        }
+        Token::new(TokenKind::String, Some(out), self.buffer.line, column)
     }
 
     fn parse_character(&mut self) -> Token {
@@ -154,7 +143,7 @@ impl<'a> Lexer<'a> {
             }
         };
 
-        Token { value: None, kind }
+        Token::new(kind, None, self.buffer.line, self.buffer.column)
     }
 
     pub fn lex(&mut self) -> Vec<Token> {
@@ -163,19 +152,23 @@ impl<'a> Lexer<'a> {
         while !self.buffer.eof {
             let curr = self.buffer.current;
 
-            match curr {
-                'a'..='z' | 'A'..='Z' | '_' => tokens.push(self.parse_identifier_or_keyword()),
-                '0'..='9' => tokens.push(self.parse_number()),
-                '\'' | '"' => tokens.push(self.parse_string(curr)),
+            let token = match curr {
+                'a'..='z' | 'A'..='Z' | '_' => self.parse_identifier_or_keyword(),
+                '0'..='9' => self.parse_number(),
+                '\'' | '"' => self.parse_string(curr),
                 c if c.is_whitespace() => {
                     self.buffer.next();
+                    continue;
                 }
                 _ => {
-                    tokens.push(self.parse_character());
-
+                    let token = self.parse_character();
                     self.buffer.next();
+
+                    token
                 }
-            }
+            };
+
+            tokens.push(token);
         }
 
         tokens
@@ -200,50 +193,17 @@ mod tests {
         assert_eq!(
             lexed,
             vec![
-                Token {
-                    kind: TokenKind::Func,
-                    value: None
-                },
-                Token {
-                    kind: TokenKind::Identifier,
-                    value: Some("main".to_string())
-                },
-                Token {
-                    kind: TokenKind::PareL,
-                    value: None,
-                },
-                Token {
-                    kind: TokenKind::PareR,
-                    value: None
-                },
-                Token {
-                    kind: TokenKind::BraceL,
-                    value: None
-                },
-                Token {
-                    kind: TokenKind::Identifier,
-                    value: Some("print".to_string())
-                },
-                Token {
-                    kind: TokenKind::PareL,
-                    value: None
-                },
-                Token {
-                    kind: TokenKind::String,
-                    value: Some("Hello, World!".to_string())
-                },
-                Token {
-                    kind: TokenKind::PareR,
-                    value: None
-                },
-                Token {
-                    kind: TokenKind::Semi,
-                    value: None
-                },
-                Token {
-                    kind: TokenKind::BraceR,
-                    value: None
-                },
+                Token::new(TokenKind::Func, None, 1, 13),
+                Token::new(TokenKind::Identifier, Some("main".to_string()), 1, 18),
+                Token::new(TokenKind::PareL, None, 1, 22),
+                Token::new(TokenKind::PareR, None, 1, 23),
+                Token::new(TokenKind::BraceL, None, 1, 25),
+                Token::new(TokenKind::Identifier, Some("print".to_string()), 2, 17),
+                Token::new(TokenKind::PareL, None, 2, 22),
+                Token::new(TokenKind::String, Some("Hello, World!".to_string()), 2, 23),
+                Token::new(TokenKind::PareR, None, 2, 38),
+                Token::new(TokenKind::Semi, None, 2, 39),
+                Token::new(TokenKind::BraceR, None, 3, 13),
             ]
         )
     }
@@ -260,26 +220,11 @@ mod tests {
         assert_eq!(
             lexed,
             vec![
-                Token {
-                    kind: TokenKind::Let,
-                    value: None
-                },
-                Token {
-                    kind: TokenKind::Identifier,
-                    value: Some("x".to_string())
-                },
-                Token {
-                    kind: TokenKind::Equals,
-                    value: None
-                },
-                Token {
-                    kind: TokenKind::String,
-                    value: Some("Hello, World!".to_string())
-                },
-                Token {
-                    kind: TokenKind::Semi,
-                    value: None
-                },
+                Token::new(TokenKind::Let, None, 1, 13),
+                Token::new(TokenKind::Identifier, Some("x".to_string()), 1, 17),
+                Token::new(TokenKind::Equals, None, 1, 19),
+                Token::new(TokenKind::String, Some("Hello, World!".to_string()), 1, 21),
+                Token::new(TokenKind::Semi, None, 1, 36),
             ]
         )
     }
@@ -290,17 +235,11 @@ mod tests {
 
         assert_eq!(
             parsed_int.parse_number(),
-            Token {
-                kind: TokenKind::Number,
-                value: Some("1000000".to_string())
-            }
+            Token::new(TokenKind::Number, Some("1000000".to_string()), 1, 0)
         );
 
-        assert_eq!(
-            // check if it consumes things that weren't an integer
-            parsed_int.buffer.current,
-            ';'
-        )
+        // check if it consumes things that weren't an integer
+        assert_eq!(parsed_int.buffer.current, ';')
     }
 
     #[test]
@@ -309,10 +248,7 @@ mod tests {
 
         assert_eq!(
             parsed_float,
-            Token {
-                kind: TokenKind::Float,
-                value: Some("3.14156".to_string())
-            }
+            Token::new(TokenKind::Float, Some("3.14156".to_string()), 1, 0)
         )
     }
 
@@ -322,10 +258,12 @@ mod tests {
 
         assert_eq!(
             parsed,
-            Token {
-                kind: TokenKind::String,
-                value: Some("Hello\n\\n,\'\"\" World!!".to_string())
-            }
+            Token::new(
+                TokenKind::String,
+                Some("Hello\n\\n,\'\"\" World!!".to_string()),
+                1,
+                0
+            )
         )
     }
 
