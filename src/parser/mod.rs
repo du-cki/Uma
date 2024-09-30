@@ -1,6 +1,8 @@
 mod types;
 mod utils;
 
+use std::collections::VecDeque;
+
 use types::Block;
 
 use crate::lexer::{Token, TokenKind};
@@ -10,24 +12,24 @@ use self::types::{Expr, Stmt};
 use self::utils::Buffer;
 
 pub struct Parser {
-    buffer: Buffer,
+    tokens: VecDeque<Token>,
 }
 
 #[allow(unused)]
 impl Parser {
-    pub fn new(buffer: Vec<Token>) -> Parser {
+    pub fn new(tokens: Vec<Token>) -> Parser {
         Parser {
-            buffer: Buffer::new(buffer),
+            tokens: tokens.into(),
         }
     }
 
     fn primary(&mut self) -> Stmt {
-        let token = self.buffer.consume();
+        let token = self.tokens.consume();
 
         match token.kind {
             TokenKind::String | TokenKind::Number | TokenKind::Float => token.into(),
             TokenKind::Identifier => {
-                if let Some(peeked) = self.buffer.peek() {
+                if let Some(peeked) = self.tokens.peek() {
                     if peeked.kind == TokenKind::PareL {
                         return self.call(token.value.clone().unwrap());
                     }
@@ -37,7 +39,7 @@ impl Parser {
             }
             TokenKind::PareL => {
                 let expr = self.expr();
-                self.buffer.expect(TokenKind::PareR);
+                self.tokens.expect(TokenKind::PareR);
 
                 expr
             }
@@ -46,15 +48,15 @@ impl Parser {
     }
 
     fn binary(&mut self, mut lhs: Stmt, precedence: i8) -> Stmt {
-        while let Some(token) = self.buffer.peek() {
+        while let Some(token) = self.tokens.peek() {
             if token.kind.precedence() < precedence {
                 return lhs;
             }
 
-            let op = self.buffer.consume();
+            let op = self.tokens.consume();
 
             let mut rhs = self.primary();
-            if let Some(token) = self.buffer.peek() {
+            if let Some(token) = self.tokens.peek() {
                 if op.kind.precedence() < token.kind.precedence() {
                     rhs = self.binary(rhs, op.kind.precedence() + 1);
                 }
@@ -79,11 +81,11 @@ impl Parser {
     }
 
     fn block(&mut self) -> Block {
-        self.buffer.expect(TokenKind::BraceL);
+        self.tokens.expect(TokenKind::BraceL);
 
         let mut stmts = Vec::<Stmt>::new();
 
-        while let Some(token) = self.buffer.peek().cloned() {
+        while let Some(token) = self.tokens.peek().cloned() {
             if token.kind == TokenKind::BraceR {
                 break;
             }
@@ -91,7 +93,7 @@ impl Parser {
             stmts.push(self.stmt(token));
         }
 
-        self.buffer.expect(TokenKind::BraceR);
+        self.tokens.expect(TokenKind::BraceR);
 
         Block { stmts }
     }
@@ -109,23 +111,23 @@ impl Parser {
     }
 
     fn return_(&mut self) -> Stmt {
-        self.buffer.expect(TokenKind::Return);
+        self.tokens.expect(TokenKind::Return);
         let expr = self.expr();
 
-        self.buffer.try_expect(&TokenKind::Semi);
+        self.tokens.try_expect(&TokenKind::Semi);
 
         Stmt::Return(expr.into())
     }
 
     fn variable(&mut self) -> Stmt {
-        self.buffer.expect(TokenKind::Let);
+        self.tokens.expect(TokenKind::Let);
 
-        let is_mut = self.buffer.try_expect(&TokenKind::Mut).is_some();
-        let name = self.buffer.expect(TokenKind::Identifier).value.unwrap();
+        let is_mut = self.tokens.try_expect(&TokenKind::Mut).is_some();
+        let name = self.tokens.expect(TokenKind::Identifier).value.unwrap();
 
-        self.buffer.expect(TokenKind::Equals);
+        self.tokens.expect(TokenKind::Equals);
         let value = self.expr();
-        self.buffer.try_expect(&TokenKind::Semi);
+        self.tokens.try_expect(&TokenKind::Semi);
 
         Stmt::Var {
             name,
@@ -135,9 +137,9 @@ impl Parser {
     }
 
     fn call(&mut self, name: String) -> Stmt {
-        self.buffer.expect(TokenKind::PareL);
+        self.tokens.expect(TokenKind::PareL);
 
-        if let Some(token) = self.buffer.try_expect(&TokenKind::PareR) {
+        if let Some(token) = self.tokens.try_expect(&TokenKind::PareR) {
             return Stmt::Call { name, args: vec![] };
         }
 
@@ -147,28 +149,28 @@ impl Parser {
             let arg = self.expr();
             args.push(arg.into());
 
-            if let Some(token) = self.buffer.try_expect(&TokenKind::PareR) {
+            if let Some(token) = self.tokens.try_expect(&TokenKind::PareR) {
                 break;
             }
 
-            self.buffer.expect(TokenKind::Comma);
+            self.tokens.expect(TokenKind::Comma);
         }
 
-        self.buffer.try_expect(&TokenKind::Semi);
+        self.tokens.try_expect(&TokenKind::Semi);
 
         Stmt::Call { name, args }
     }
 
     fn function(&mut self) -> Stmt {
-        self.buffer.expect(TokenKind::Func);
+        self.tokens.expect(TokenKind::Func);
 
-        let name = self.buffer.expect(TokenKind::Identifier).value.unwrap();
+        let name = self.tokens.expect(TokenKind::Identifier).value.unwrap();
 
-        self.buffer.expect(TokenKind::PareL);
+        self.tokens.expect(TokenKind::PareL);
 
         let mut args = mapping!();
 
-        while let Some(arg) = self.buffer.try_expect(&TokenKind::Identifier) {
+        while let Some(arg) = self.tokens.try_expect(&TokenKind::Identifier) {
             let name = arg.value.unwrap();
 
             if args.contains_key(&name) {
@@ -176,8 +178,8 @@ impl Parser {
             }
 
             let r#type = {
-                if let Some(token) = self.buffer.try_expect(&TokenKind::Colon) {
-                    Some(self.buffer.expect(TokenKind::Identifier).value.unwrap())
+                if let Some(token) = self.tokens.try_expect(&TokenKind::Colon) {
+                    Some(self.tokens.expect(TokenKind::Identifier).value.unwrap())
                 } else {
                     None
                 }
@@ -185,19 +187,19 @@ impl Parser {
 
             args.insert(name, r#type);
 
-            if self.buffer.try_expect(&TokenKind::PareR).is_some() {
+            if self.tokens.try_expect(&TokenKind::PareR).is_some() {
                 break;
             }
 
-            self.buffer.expect(TokenKind::Comma);
+            self.tokens.expect(TokenKind::Comma);
         }
 
         if args.is_empty() {
-            self.buffer.expect(TokenKind::PareR);
+            self.tokens.expect(TokenKind::PareR);
         }
 
         let body = self.block();
-        self.buffer.try_expect(&TokenKind::Semi);
+        self.tokens.try_expect(&TokenKind::Semi);
 
         Stmt::Func { name, args, body }
     }

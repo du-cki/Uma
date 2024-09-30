@@ -2,30 +2,32 @@ use std::collections::VecDeque;
 
 use crate::lexer::{Token, TokenKind};
 
-pub(crate) struct Buffer {
-    pub tokens: VecDeque<Token>,
+pub trait Buffer<Item, Kind = TokenKind> {
+    fn consume(&mut self) -> Item;
+
+    fn get(&self, idx: usize) -> Option<&Item>;
+
+    fn peek(&self) -> Option<&Item>;
+
+    fn try_expect(&mut self, kind: &Kind) -> Option<Item>;
+
+    fn expect(&mut self, kind: Kind) -> Item;
 }
 
-impl Buffer {
-    pub fn new(tokens: Vec<Token>) -> Buffer {
-        Buffer {
-            tokens: VecDeque::from(tokens),
-        }
+impl Buffer<Token> for VecDeque<Token> {
+    fn consume(&mut self) -> Token {
+        self.pop_front().expect("Unexpected end of tokens")
     }
 
-    pub fn consume(&mut self) -> Token {
-        self.tokens.pop_front().expect("Unexpected end of tokens")
+    fn get(&self, idx: usize) -> Option<&Token> {
+        self.get(idx)
     }
 
-    pub fn get(&self, idx: usize) -> Option<&Token> {
-        self.tokens.get(idx)
-    }
-
-    pub fn peek(&self) -> Option<&Token> {
+    fn peek(&self) -> Option<&Token> {
         self.get(0)
     }
 
-    pub fn try_expect(&mut self, kind: &TokenKind) -> Option<Token> {
+    fn try_expect(&mut self, kind: &TokenKind) -> Option<Token> {
         if let Some(next_token) = self.peek() {
             if next_token.kind == *kind {
                 return Some(self.consume());
@@ -35,7 +37,7 @@ impl Buffer {
         return None;
     }
 
-    pub fn expect(&mut self, kind: TokenKind) -> Token {
+    fn expect(&mut self, kind: TokenKind) -> Token {
         if let Some(next_token) = self.try_expect(&kind) {
             return next_token;
         }
