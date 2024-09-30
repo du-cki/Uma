@@ -1,3 +1,4 @@
+#[allow(unused)]
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenKind {
     Identifier,

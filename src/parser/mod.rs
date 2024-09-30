@@ -4,6 +4,7 @@ mod utils;
 use std::collections::VecDeque;
 
 use types::Block;
+use utils::ParserError;
 
 use crate::lexer::{Token, TokenKind};
 use crate::mapping;
@@ -23,42 +24,47 @@ impl Parser {
         }
     }
 
-    fn primary(&mut self) -> Stmt {
+    fn primary(&mut self) -> Result<Stmt, ParserError> {
         let token = self.tokens.consume();
 
-        match token.kind {
-            TokenKind::String | TokenKind::Number | TokenKind::Float => token.into(),
+        match token.clone().kind {
+            TokenKind::String | TokenKind::Number | TokenKind::Float => Ok(token.into()),
             TokenKind::Identifier => {
                 if let Some(peeked) = self.tokens.peek() {
                     if peeked.kind == TokenKind::PareL {
-                        return self.call(token.value.clone().unwrap());
+                        return self.call(token.value.unwrap());
                     }
                 }
 
-                token.into()
+                Ok(token.into())
             }
             TokenKind::PareL => {
-                let expr = self.expr();
-                self.tokens.expect(TokenKind::PareR);
+                let expr = self.expr()?;
+                self.tokens.expect(TokenKind::PareR)?;
 
-                expr
+                Ok(expr)
             }
-            token => panic!("Unexpected token: {:?}", token),
+            kind => Err(ParserError::new(
+                utils::ErrorType::UnexpectedToken,
+                Some(token),
+                format!("Unexpected token occurred: {:?}", kind),
+            )),
         }
     }
 
-    fn binary(&mut self, mut lhs: Stmt, precedence: i8) -> Stmt {
+    fn binary(&mut self, mut lhs: Stmt, precedence: i8) -> Result<Stmt, ParserError> {
         while let Some(token) = self.tokens.peek() {
             if token.kind.precedence() < precedence {
-                return lhs;
+                return Ok(lhs);
             }
 
             let op = self.tokens.consume();
 
-            let mut rhs = self.primary();
+            let mut rhs = self.primary()?;
+
             if let Some(token) = self.tokens.peek() {
                 if op.kind.precedence() < token.kind.precedence() {
-                    rhs = self.binary(rhs, op.kind.precedence() + 1);
+                    rhs = self.binary(rhs, op.kind.precedence() + 1)?;
                 }
             }
 
@@ -70,116 +76,120 @@ impl Parser {
             .into();
         }
 
-        lhs
+        Ok(lhs)
     }
 
-    fn expr(&mut self) -> Stmt {
-        let mut primary = self.primary();
-        let expr = self.binary(primary, 0);
+    fn expr(&mut self) -> Result<Stmt, ParserError> {
+        let mut primary = self.primary()?;
+        let expr = self.binary(primary, 0)?;
 
-        expr
+        Ok(expr)
     }
 
-    fn block(&mut self) -> Block {
-        self.tokens.expect(TokenKind::BraceL);
+    fn block(&mut self) -> Result<Block, ParserError> {
+        self.tokens.expect(TokenKind::BraceL)?;
 
         let mut stmts = Vec::<Stmt>::new();
 
-        while let Some(token) = self.tokens.peek().cloned() {
+        while let Some(token) = self.tokens.peek() {
             if token.kind == TokenKind::BraceR {
                 break;
             }
 
-            stmts.push(self.stmt(token));
+            stmts.push(self.stmt(token)?);
         }
 
-        self.tokens.expect(TokenKind::BraceR);
-
-        Block { stmts }
+        self.tokens.expect(TokenKind::BraceR)?;
+        Ok(Block { stmts })
     }
 
-    fn stmt(&mut self, token: Token) -> Stmt {
+    fn stmt(&mut self, token: Token) -> Result<Stmt, ParserError> {
         let stmt = match token.kind {
-            TokenKind::Let => self.variable(),
             TokenKind::Func => self.function(),
+            TokenKind::Let => self.variable(),
             TokenKind::Return => self.return_(),
-            TokenKind::Semi => Stmt::Empty,
+            TokenKind::Semi => Ok(Stmt::Empty),
             _ => self.expr(),
         };
 
         stmt
     }
 
-    fn return_(&mut self) -> Stmt {
-        self.tokens.expect(TokenKind::Return);
-        let expr = self.expr();
+    fn return_(&mut self) -> Result<Stmt, ParserError> {
+        self.tokens.expect(TokenKind::Return)?;
+        let expr = self.expr()?;
 
         self.tokens.try_expect(&TokenKind::Semi);
 
-        Stmt::Return(expr.into())
+        Ok(Stmt::Return(expr.into()))
     }
 
-    fn variable(&mut self) -> Stmt {
-        self.tokens.expect(TokenKind::Let);
+    fn variable(&mut self) -> Result<Stmt, ParserError> {
+        self.tokens.expect(TokenKind::Let)?;
 
         let is_mut = self.tokens.try_expect(&TokenKind::Mut).is_some();
-        let name = self.tokens.expect(TokenKind::Identifier).value.unwrap();
+        let name = self.tokens.expect(TokenKind::Identifier)?.value.unwrap();
 
-        self.tokens.expect(TokenKind::Equals);
-        let value = self.expr();
+        self.tokens.expect(TokenKind::Equals)?;
+        let value = self.expr()?;
+
         self.tokens.try_expect(&TokenKind::Semi);
 
-        Stmt::Var {
+        Ok(Stmt::Var {
             name,
             value: value.into(),
             is_mut,
-        }
+        })
     }
 
-    fn call(&mut self, name: String) -> Stmt {
-        self.tokens.expect(TokenKind::PareL);
+    fn call(&mut self, name: String) -> Result<Stmt, ParserError> {
+        self.tokens.expect(TokenKind::PareL)?;
 
         if let Some(token) = self.tokens.try_expect(&TokenKind::PareR) {
-            return Stmt::Call { name, args: vec![] };
+            return Ok(Stmt::Call { name, args: vec![] });
         }
 
         let mut args = Vec::new();
 
         loop {
-            let arg = self.expr();
+            let arg = self.expr()?;
             args.push(arg.into());
 
             if let Some(token) = self.tokens.try_expect(&TokenKind::PareR) {
                 break;
             }
 
-            self.tokens.expect(TokenKind::Comma);
+            self.tokens.expect(TokenKind::Comma)?;
         }
 
         self.tokens.try_expect(&TokenKind::Semi);
 
-        Stmt::Call { name, args }
+        Ok(Stmt::Call { name, args })
     }
 
-    fn function(&mut self) -> Stmt {
+    fn function(&mut self) -> Result<Stmt, ParserError> {
         self.tokens.expect(TokenKind::Func);
 
-        let name = self.tokens.expect(TokenKind::Identifier).value.unwrap();
+        let name = self.tokens.expect(TokenKind::Identifier)?.value.unwrap();
 
         self.tokens.expect(TokenKind::PareL);
 
         let mut args = mapping!();
 
         while let Some(arg) = self.tokens.try_expect(&TokenKind::Identifier) {
-            let name = arg.value.unwrap();
+            let name = arg.value.clone().unwrap();
 
             if args.contains_key(&name) {
-                panic!("Duplicate argument: {}", name);
+                return Err(ParserError::new(
+                    utils::ErrorType::DuplicateArgument,
+                    Some(arg),
+                    "Duplicate argument",
+                ));
             }
 
             let r#type = {
                 if let Some(token) = self.tokens.try_expect(&TokenKind::Colon) {
-                    Some(self.tokens.expect(TokenKind::Identifier).value.unwrap())
+                    Some(self.tokens.expect(TokenKind::Identifier)?.value.unwrap())
                 } else {
                     None
                 }
@@ -198,10 +208,10 @@ impl Parser {
             self.tokens.expect(TokenKind::PareR);
         }
 
-        let body = self.block();
+        let body = self.block()?;
         self.tokens.try_expect(&TokenKind::Semi);
 
-        Stmt::Func { name, args, body }
+        Ok(Stmt::Func { name, args, body })
     }
 }
 
@@ -222,7 +232,7 @@ mod tests {
         .lex();
 
         assert_eq!(
-            Parser::new(tokens).variable(),
+            Parser::new(tokens).variable().unwrap(),
             Stmt::Var {
                 name: String::from("foo"),
                 value: Expr::String(String::from("bar")).into(),
@@ -241,7 +251,7 @@ mod tests {
         .lex();
 
         assert_eq!(
-            Parser::new(tokens).variable(),
+            Parser::new(tokens).variable().unwrap(),
             Stmt::Var {
                 name: String::from("foo"),
                 value: Expr::Binary {
@@ -274,7 +284,7 @@ mod tests {
         .lex();
 
         assert_eq!(
-            Parser::new(tokens).variable(),
+            Parser::new(tokens).variable().unwrap(),
             Stmt::Var {
                 name: String::from("x"),
                 value: Expr::Binary {
@@ -310,7 +320,7 @@ mod tests {
         .lex();
 
         assert_eq!(
-            Parser::new(tokens).function(),
+            Parser::new(tokens).function().unwrap(),
             Stmt::Func {
                 name: String::from("main"),
                 args: mapping!(),
@@ -337,7 +347,7 @@ mod tests {
         .lex();
 
         assert_eq!(
-            Parser::new(tokens).function(),
+            Parser::new(tokens).function().unwrap(),
             Stmt::Func {
                 name: String::from("sum"),
                 args: mapping!(
