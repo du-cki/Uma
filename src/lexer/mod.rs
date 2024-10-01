@@ -74,7 +74,6 @@ impl<'a> Lexer<'a> {
             }
 
             out.push(curr);
-
             self.buffer.next();
         }
 

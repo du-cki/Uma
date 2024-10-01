@@ -13,7 +13,7 @@ fn println(num: usize, s: &str) {
 
 fn error(err: &ParserError, source: &str, file_name: &str) {
     let lines: Vec<&str> = source.lines().collect();
-    let error_line = err.token.line as usize; // 1-based line number
+    let error_line = err.token.line;
 
     println!(
         " {} {}:{}:{}:",

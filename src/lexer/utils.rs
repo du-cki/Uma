@@ -1,5 +1,6 @@
 use std::str::Chars;
 
+#[derive(Debug)]
 pub struct Buffer<'a> {
     pub data: Chars<'a>,
     pub eof: bool,
@@ -9,15 +10,15 @@ pub struct Buffer<'a> {
 }
 
 impl<'a> Buffer<'a> {
-    pub fn new(raw_data: &'a str) -> Buffer<'a> {
-        let mut data = raw_data.chars();
+    pub fn new(raw: &'a str) -> Buffer<'a> {
+        let mut data = raw.chars();
         let current = data.next().unwrap_or('\0');
 
         Buffer {
             data,
             eof: current == '\0',
             current,
-            line: 1,
+            line: 1 + (current == '\n') as usize,
             column: 0,
         }
     }
@@ -32,8 +33,8 @@ impl<'a> Buffer<'a> {
         };
 
         if c == '\n' {
-            self.column = 0;
             self.line += 1;
+            self.column = 0;
         } else {
             self.column += 1;
         }
