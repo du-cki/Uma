@@ -4,7 +4,7 @@ mod utils;
 use std::collections::VecDeque;
 
 use types::Block;
-use utils::ParserError;
+pub use utils::{ErrorType, ParserError};
 
 use crate::lexer::{Token, TokenKind};
 use crate::mapping;
@@ -22,6 +22,16 @@ impl Parser {
         Parser {
             tokens: tokens.into(),
         }
+    }
+
+    pub fn parse(&mut self) -> Result<Vec<Stmt>, ParserError> {
+        let mut stmts = Vec::<Stmt>::new();
+
+        while let Some(token) = self.tokens.peek() {
+            stmts.push(self.stmt(token)?);
+        }
+
+        Ok(stmts)
     }
 
     fn primary(&mut self) -> Result<Stmt, ParserError> {
@@ -45,9 +55,9 @@ impl Parser {
                 Ok(expr)
             }
             kind => Err(ParserError::new(
-                utils::ErrorType::UnexpectedToken,
-                Some(token),
-                format!("Unexpected token occurred: {:?}", kind),
+                ErrorType::UnexpectedToken,
+                token,
+                format!("Unexpected token occurred `{:#?}`", kind),
             )),
         }
     }
@@ -168,11 +178,11 @@ impl Parser {
     }
 
     fn function(&mut self) -> Result<Stmt, ParserError> {
-        self.tokens.expect(TokenKind::Func);
+        self.tokens.expect(TokenKind::Func)?;
 
         let name = self.tokens.expect(TokenKind::Identifier)?.value.unwrap();
 
-        self.tokens.expect(TokenKind::PareL);
+        self.tokens.expect(TokenKind::PareL)?;
 
         let mut args = mapping!();
 
@@ -181,8 +191,8 @@ impl Parser {
 
             if args.contains_key(&name) {
                 return Err(ParserError::new(
-                    utils::ErrorType::DuplicateArgument,
-                    Some(arg),
+                    ErrorType::DuplicateArgument,
+                    arg,
                     "Duplicate argument",
                 ));
             }
@@ -201,11 +211,11 @@ impl Parser {
                 break;
             }
 
-            self.tokens.expect(TokenKind::Comma);
+            self.tokens.expect(TokenKind::Comma)?;
         }
 
         if args.is_empty() {
-            self.tokens.expect(TokenKind::PareR);
+            self.tokens.expect(TokenKind::PareR)?;
         }
 
         let body = self.block()?;
@@ -365,6 +375,51 @@ mod tests {
                     )]
                 }
             }
+        )
+    }
+
+    #[test]
+    fn syntax_error() {
+        let tokens = Lexer::new(
+            r#"
+            let = "Hello, World!";
+        "#,
+        )
+        .lex();
+
+        let result = Parser::new(tokens).variable();
+
+        assert!(result.is_err());
+
+        assert_eq!(result.err().unwrap().r#type, ErrorType::ExpectedToken);
+    }
+
+    #[test]
+    fn program() {
+        let tokens = Lexer::new(
+            r#"
+            func main() {
+                print("Hello, World!");
+            }
+        "#,
+        )
+        .lex();
+
+        let parsed = Parser::new(tokens).parse();
+
+        assert_eq!(
+            parsed.unwrap(),
+            vec![Stmt::Func {
+                name: String::from("main"),
+                args: mapping!(),
+                body: Block {
+                    stmts: vec![Stmt::Call {
+                        name: String::from("print"),
+                        args: vec![Expr::String(String::from("Hello, World!")).into()]
+                    }
+                    .into()]
+                }
+            }]
         )
     }
 }

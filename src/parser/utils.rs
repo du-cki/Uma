@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::lexer::{Token, TokenKind};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ErrorType {
     ExpectedToken,
     UnexpectedToken,
@@ -12,12 +12,12 @@ pub enum ErrorType {
 #[derive(Debug)]
 pub struct ParserError {
     pub r#type: ErrorType,
-    pub token: Option<Token>,
+    pub token: Token,
     pub message: String,
 }
 
 impl ParserError {
-    pub fn new(r#type: ErrorType, token: Option<Token>, message: impl ToString) -> ParserError {
+    pub fn new(r#type: ErrorType, token: Token, message: impl ToString) -> ParserError {
         ParserError {
             r#type,
             token,
@@ -66,9 +66,16 @@ impl Buffer<Token> for VecDeque<Token> {
             return Ok(next_token);
         }
 
+        let token = self
+            .peek()
+            .unwrap_or(Token::new(TokenKind::None, None, 0, 0));
+
         Err(ParserError {
-            token: self.peek(),
-            message: format!("Unexpected token encountered, expected: `{:#?}`", kind),
+            message: format!(
+                "Expected `{:#?}` but encountered an `{:#?}`",
+                kind, &token.kind
+            ),
+            token,
             r#type: ErrorType::ExpectedToken,
         })
     }
