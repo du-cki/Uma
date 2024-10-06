@@ -179,7 +179,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn lex_function() {
+    fn function() {
         let lexed = Lexer::new(
             r#"
             func main() {
@@ -192,23 +192,23 @@ mod tests {
         assert_eq!(
             lexed,
             vec![
-                Token::new(TokenKind::Func, None, 1, 13),
-                Token::new(TokenKind::Identifier, Some("main".to_string()), 1, 18),
-                Token::new(TokenKind::PareL, None, 1, 22),
-                Token::new(TokenKind::PareR, None, 1, 23),
-                Token::new(TokenKind::BraceL, None, 1, 25),
-                Token::new(TokenKind::Identifier, Some("print".to_string()), 2, 17),
+                Token::new(TokenKind::Func, None, 2, 13),
+                Token::new(TokenKind::Identifier, Some("main".to_string()), 2, 18),
                 Token::new(TokenKind::PareL, None, 2, 22),
-                Token::new(TokenKind::String, Some("Hello, World!".to_string()), 2, 23),
-                Token::new(TokenKind::PareR, None, 2, 38),
-                Token::new(TokenKind::Semi, None, 2, 39),
-                Token::new(TokenKind::BraceR, None, 3, 13),
+                Token::new(TokenKind::PareR, None, 2, 23),
+                Token::new(TokenKind::BraceL, None, 2, 25),
+                Token::new(TokenKind::Identifier, Some("print".to_string()), 3, 17),
+                Token::new(TokenKind::PareL, None, 3, 22),
+                Token::new(TokenKind::String, Some("Hello, World!".to_string()), 3, 23),
+                Token::new(TokenKind::PareR, None, 3, 38),
+                Token::new(TokenKind::Semi, None, 3, 39),
+                Token::new(TokenKind::BraceR, None, 4, 13),
             ]
         )
     }
 
     #[test]
-    fn lex_variable() {
+    fn variable() {
         let lexed = Lexer::new(
             r#"
             let x = "Hello, World!";
@@ -219,11 +219,11 @@ mod tests {
         assert_eq!(
             lexed,
             vec![
-                Token::new(TokenKind::Let, None, 1, 13),
-                Token::new(TokenKind::Identifier, Some("x".to_string()), 1, 17),
-                Token::new(TokenKind::Equals, None, 1, 19),
-                Token::new(TokenKind::String, Some("Hello, World!".to_string()), 1, 21),
-                Token::new(TokenKind::Semi, None, 1, 36),
+                Token::new(TokenKind::Let, None, 2, 13),
+                Token::new(TokenKind::Identifier, Some("x".to_string()), 2, 17),
+                Token::new(TokenKind::Equals, None, 2, 19),
+                Token::new(TokenKind::String, Some("Hello, World!".to_string()), 2, 21),
+                Token::new(TokenKind::Semi, None, 2, 36),
             ]
         )
     }

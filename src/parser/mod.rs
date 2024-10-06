@@ -3,13 +3,13 @@ mod utils;
 
 use std::collections::VecDeque;
 
-use types::Block;
+pub use types::Block;
 pub use utils::{ErrorType, ParserError};
 
 use crate::lexer::{Token, TokenKind};
 use crate::mapping;
 
-use self::types::{Expr, Stmt};
+pub use self::types::{Expr, Stmt};
 use self::utils::Buffer;
 
 pub struct Parser {
@@ -118,11 +118,38 @@ impl Parser {
             TokenKind::Func => self.function(),
             TokenKind::Let => self.variable(),
             TokenKind::Return => self.return_(),
+            TokenKind::Identifier => self.ident(token),
             TokenKind::Semi => Ok(Stmt::Empty),
             _ => self.expr(),
         };
 
         stmt
+    }
+
+    fn ident(&mut self, token: Token) -> Result<Stmt, ParserError> {
+        if let Some(eq) = self.tokens.get(1) {
+            if eq.kind == TokenKind::Equals {
+                return self.assignment();
+            }
+        }
+
+        self.expr()
+    }
+
+    fn assignment(&mut self) -> Result<Stmt, ParserError> {
+        let token = self.tokens.consume(); // identifier
+        let name = token.value.unwrap();
+
+        self.tokens.consume(); // equals
+
+        let value = self.expr()?;
+
+        self.tokens.expect(TokenKind::Semi)?;
+
+        return Ok(Stmt::Assignment {
+            name,
+            value: value.into(),
+        });
     }
 
     fn return_(&mut self) -> Result<Stmt, ParserError> {
@@ -252,6 +279,33 @@ mod tests {
     }
 
     #[test]
+    fn variable_re_assignment() {
+        let tokens = Lexer::new(
+            r#"
+            let mut foo = "bar";
+
+            foo = "baz";
+        "#,
+        )
+        .lex();
+
+        assert_eq!(
+            Parser::new(tokens).parse().unwrap(),
+            vec![
+                Stmt::Var {
+                    name: String::from("foo"),
+                    value: Expr::String(String::from("bar")).into(),
+                    is_mut: true
+                },
+                Stmt::Assignment {
+                    name: String::from("foo"),
+                    value: Expr::String(String::from("baz")).into()
+                }
+            ]
+        )
+    }
+
+    #[test]
     fn basic_arithmetic() {
         let tokens = Lexer::new(
             r#"
@@ -266,10 +320,10 @@ mod tests {
                 name: String::from("foo"),
                 value: Expr::Binary {
                     lhs: Expr::Number(String::from("9")).into(),
-                    op: Token::new(TokenKind::Add, None, 1, 25),
+                    op: Token::new(TokenKind::Add, None, 2, 25),
                     rhs: Expr::Binary {
                         lhs: Expr::Number(String::from("10")).into(),
-                        op: Token::new(TokenKind::Multi, None, 1, 30),
+                        op: Token::new(TokenKind::Multi, None, 2, 30),
                         rhs: Stmt::Call {
                             name: String::from("round"),
                             args: vec![Expr::Float(String::from("3.14")).into()]
@@ -300,14 +354,14 @@ mod tests {
                 value: Expr::Binary {
                     lhs: Expr::Binary {
                         lhs: Expr::Number(String::from("4")).into(),
-                        op: Token::new(TokenKind::Add, None, 1, 28),
+                        op: Token::new(TokenKind::Add, None, 2, 28),
                         rhs: Expr::Number(String::from("5")).into()
                     }
                     .into(),
-                    op: Token::new(TokenKind::Add, None, 1, 33),
+                    op: Token::new(TokenKind::Add, None, 2, 33),
                     rhs: Expr::Binary {
                         lhs: Expr::Number(String::from("10")).into(),
-                        op: Token::new(TokenKind::Multi, None, 1, 38),
+                        op: Token::new(TokenKind::Multi, None, 2, 38),
                         rhs: Expr::Number(String::from("3")).into()
                     }
                     .into()
@@ -368,7 +422,7 @@ mod tests {
                     stmts: vec![Stmt::Return(
                         Expr::Binary {
                             lhs: Expr::Identifier(String::from("x")).into(),
-                            op: Token::new(TokenKind::Add, None, 2, 26),
+                            op: Token::new(TokenKind::Add, None, 3, 26),
                             rhs: Expr::Identifier(String::from("y")).into()
                         }
                         .into()

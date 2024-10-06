@@ -1,6 +1,8 @@
 use std::fs;
 
 use crate::{
+    // codegen::{c::CBackend, CodeGenerator},
+    codegen::{Codegen, CodegenBackend},
     lexer::Lexer,
     parser::{Parser, ParserError},
 };
@@ -27,7 +29,7 @@ macro_rules! print_line {
     }};
 }
 
-fn error(err: &ParserError, source: &str, file_name: &str) {
+fn error(err: ParserError, source: &str, file_name: &str) {
     let lines: Vec<&str> = source.lines().collect();
     let error_line = err.token.line;
 
@@ -79,8 +81,10 @@ pub fn compile(file: String) {
     let parsed = Parser::new(tokens).parse();
 
     if parsed.is_err() {
-        error(&parsed.unwrap_err(), &src, &file);
+        return error(parsed.unwrap_err(), &src, &file);
     }
 
-    println!("parsed successfully")
+    Codegen::generate(CodegenBackend::C, parsed.unwrap(), file.replace(".uma", ""));
+
+    println!("compiled successfully");
 }

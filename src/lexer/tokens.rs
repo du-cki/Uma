@@ -52,6 +52,16 @@ impl Token {
             column,
         }
     }
+
+    pub fn repr(&self) -> String {
+        match self.kind {
+            TokenKind::Add => String::from("+"),
+            TokenKind::Sub => String::from("-"),
+            TokenKind::Multi => String::from("*"),
+            TokenKind::Div => String::from("/"),
+            _ => panic!("Unknown token kind."),
+        }
+    }
 }
 
 impl TokenKind {

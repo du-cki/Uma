@@ -1,5 +1,7 @@
 func main() {
-    let mut = x = ", World!";
-    
-    print("Hello" + x);
+    let mut x = 35 + 34;
+    print("Hello, World! %d", x);
+
+    x = 3;
+    print("%d", x);
 }

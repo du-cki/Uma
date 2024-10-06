@@ -31,6 +31,10 @@ pub enum Stmt {
         name: String,
         args: Vec<Box<Stmt>>,
     },
+    Assignment {
+        name: String,
+        value: Box<Stmt>,
+    },
     Return(Box<Stmt>),
     Expr(Expr),
     Empty,
