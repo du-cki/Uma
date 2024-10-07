@@ -34,7 +34,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn parse_identifier_or_keyword(&mut self) -> Token {
+    fn ident_or_keyword(&mut self) -> Token {
         let mut out = String::new();
 
         let column = self.buffer.column;
@@ -52,7 +52,7 @@ impl<'a> Lexer<'a> {
         ))
     }
 
-    fn parse_number(&mut self) -> Token {
+    fn number(&mut self) -> Token {
         let mut out = String::new();
         let column = self.buffer.column;
 
@@ -84,7 +84,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn parse_string(&mut self, delimeter: char) -> Token {
+    fn string(&mut self, delimeter: char) -> Token {
         let mut out = String::new();
         self.buffer.next();
 
@@ -117,12 +117,14 @@ impl<'a> Lexer<'a> {
     }
 
     fn parse_character(&mut self) -> Token {
+        let line = self.buffer.line;
+        let column = self.buffer.column;
+
         let kind = {
             match self.buffer.current {
                 ':' => TokenKind::Colon,
                 ';' => TokenKind::Semi,
                 '=' => TokenKind::Equals,
-                '.' => TokenKind::Dot,
                 ',' => TokenKind::Comma,
                 '{' => TokenKind::BraceL,
                 '}' => TokenKind::BraceR,
@@ -135,6 +137,23 @@ impl<'a> Lexer<'a> {
                 '/' => TokenKind::Div,
                 '*' => TokenKind::Multi,
                 '^' => TokenKind::Expo,
+                '@' => TokenKind::At,
+                '.' => {
+                    if let Some('.') = self.buffer.peek() {
+                        self.buffer.next();
+
+                        if let Some('.') = self.buffer.peek() {
+                            self.buffer.next();
+                            self.buffer.next();
+
+                            return Token::new(TokenKind::Ellipsis, None, line, column);
+                        } else {
+                            panic!("Unexpected character `..` found while parsing.");
+                        }
+                    }
+
+                    TokenKind::Dot
+                }
                 _ => panic!(
                     "Unexpected character `{}` found while parsing.",
                     self.buffer.current
@@ -142,7 +161,10 @@ impl<'a> Lexer<'a> {
             }
         };
 
-        Token::new(kind, None, self.buffer.line, self.buffer.column)
+        let token = Token::new(kind, None, line, column);
+        self.buffer.next();
+
+        token
     }
 
     pub fn lex(&mut self) -> Vec<Token> {
@@ -152,19 +174,14 @@ impl<'a> Lexer<'a> {
             let curr = self.buffer.current;
 
             let token = match curr {
-                'a'..='z' | 'A'..='Z' | '_' => self.parse_identifier_or_keyword(),
-                '0'..='9' => self.parse_number(),
-                '\'' | '"' => self.parse_string(curr),
+                'a'..='z' | 'A'..='Z' | '_' => self.ident_or_keyword(),
+                '0'..='9' => self.number(),
+                '\'' | '"' => self.string(curr),
                 c if c.is_whitespace() => {
                     self.buffer.next();
                     continue;
                 }
-                _ => {
-                    let token = self.parse_character();
-                    self.buffer.next();
-
-                    token
-                }
+                _ => self.parse_character(),
             };
 
             tokens.push(token);
@@ -233,7 +250,7 @@ mod tests {
         let mut parsed_int = Lexer::new("1_000_000;");
 
         assert_eq!(
-            parsed_int.parse_number(),
+            parsed_int.number(),
             Token::new(TokenKind::Number, Some("1000000".to_string()), 1, 0)
         );
 
@@ -243,7 +260,7 @@ mod tests {
 
     #[test]
     fn float_parsing() {
-        let parsed_float = Lexer::new("3.14156;").parse_number();
+        let parsed_float = Lexer::new("3.14156;").number();
 
         assert_eq!(
             parsed_float,
@@ -253,7 +270,7 @@ mod tests {
 
     #[test]
     fn string_parsing() {
-        let parsed = Lexer::new(r#"'Hello\n\\n,\'"" World!!'"#).parse_string('\'');
+        let parsed = Lexer::new(r#"'Hello\n\\n,\'"" World!!'"#).string('\'');
 
         assert_eq!(
             parsed,

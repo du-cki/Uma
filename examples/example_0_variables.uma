@@ -1,7 +1,10 @@
+func printf(fmt: String, ...) @requires("stdio.h")
+
+
 func main() {
     let mut x = 35 + 34;
-    print("Hello, World! %d", x);
+    printf("Hello, World! %d\n", x);
 
-    x = 3;
-    print("%d", x);
+    x = x + 351;
+    printf("x = %d;", x);
 }

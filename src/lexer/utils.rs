@@ -1,8 +1,8 @@
-use std::str::Chars;
+use std::{iter::Peekable, str::Chars};
 
 #[derive(Debug)]
 pub struct Buffer<'a> {
-    pub data: Chars<'a>,
+    pub data: Peekable<Chars<'a>>,
     pub eof: bool,
     pub current: char,
     pub line: usize,
@@ -11,7 +11,7 @@ pub struct Buffer<'a> {
 
 impl<'a> Buffer<'a> {
     pub fn new(raw: &'a str) -> Buffer<'a> {
-        let mut data = raw.chars();
+        let mut data = raw.chars().peekable();
         let current = data.next().unwrap_or('\0');
 
         Buffer {
@@ -42,5 +42,9 @@ impl<'a> Buffer<'a> {
         self.current = c;
 
         Some(c)
+    }
+
+    pub fn peek(&mut self) -> Option<&char> {
+        self.data.peek()
     }
 }

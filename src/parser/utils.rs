@@ -7,6 +7,7 @@ pub enum ErrorType {
     ExpectedToken,
     UnexpectedToken,
     DuplicateArgument,
+    InvalidAttribute,
 }
 
 #[derive(Debug)]
@@ -17,12 +18,16 @@ pub struct ParserError {
 }
 
 impl ParserError {
-    pub fn new(r#type: ErrorType, token: Token, message: impl ToString) -> ParserError {
-        ParserError {
+    pub fn new<T>(
+        r#type: ErrorType,
+        token: Token,
+        message: impl ToString,
+    ) -> Result<T, ParserError> {
+        Err(ParserError {
             r#type,
             token,
             message: message.to_string(),
-        }
+        })
     }
 }
 

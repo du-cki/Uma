@@ -26,6 +26,8 @@ pub enum TokenKind {
     Sub,
     Multi,
     Div,
+    At,
+    Ellipsis,
 
     Let,
     Mut,

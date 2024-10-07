@@ -8,7 +8,7 @@ pub(crate) struct CBackend {
 
 #[allow(unreachable_patterns)]
 impl CBackend {
-    pub fn generate(exprs: Vec<Stmt>, out: String) {
+    pub fn generate(exprs: Vec<Stmt>, out: impl ToString) {
         let mut code = String::new();
 
         let mut backend = CBackend { headers: vec![] };
@@ -17,9 +17,20 @@ impl CBackend {
             code.push_str(&backend.stmt(&expr));
         }
 
-        let r#final = format!("{}\n\n{}", backend.headers.join("\n"), code);
+        backend.compile(
+            format!("{}\n\n{}", backend.headers.join("\n"), code),
+            out.to_string(),
+        );
+    }
 
-        backend.compile(r#final, out);
+    pub fn generate_and_run(exprs: Vec<Stmt>, out: String) {
+        Self::generate(exprs, &out);
+
+        let output = Command::new(out)
+            .output()
+            .expect("failed to execute process");
+
+        println!("{}", String::from_utf8_lossy(&output.stdout));
     }
 
     fn compile(&self, source: String, out: String) {
@@ -43,24 +54,9 @@ impl CBackend {
         }
     }
 
-    fn get_dependant(&mut self, name: &str) {
-        let dependant = match name {
-            "print" => r#"
-                #include <stdio.h>
-                #define print(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-            "#
-            .trim(),
-            _ => unimplemented!(),
-        };
-
-        let header_found = self
-            .headers
-            .iter()
-            .find(|h| h.contains(dependant))
-            .is_some();
-
-        if !header_found {
-            self.headers.push(dependant.to_string())
+    fn add_header_if_not_exist(&mut self, header: String) {
+        if !self.headers.contains(&header) {
+            self.headers.push(header);
         }
     }
 
@@ -76,7 +72,7 @@ impl CBackend {
 
     fn stmt(&mut self, stmt: &Stmt) -> String {
         match stmt {
-            Stmt::Var {
+            Stmt::Variable {
                 name,
                 value,
                 is_mut,
@@ -95,13 +91,13 @@ impl CBackend {
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                self.get_dependant(name);
-
                 format!("{}({});\n", name, args_str)
             }
-            Stmt::Func {
+            Stmt::Function {
                 name,
                 args: _,
+                is_varadic: _,
+                external,
                 body,
             } => {
                 // let args_str = args
@@ -109,6 +105,11 @@ impl CBackend {
                 //     .map(|(arg, _)| format!("int {}", arg))
                 //     .collect::<Vec<_>>()
                 //     .join(", ");
+
+                if let Some(ext) = external {
+                    self.add_header_if_not_exist(format!("#include <{}>", ext));
+                    return "".to_string();
+                }
 
                 let args_str = "";
 
@@ -128,7 +129,7 @@ impl CBackend {
             Expr::Identifier(name) => name.to_string(),
             Expr::Number(num) => num.to_string(),
             Expr::Float(num) => num.to_string(),
-            Expr::String(s) => format!("\"{}\"", s),
+            Expr::String(value) => format!("\"{}\"", value.replace("\n", r#"\n"#)),
             _ => unimplemented!(),
         }
     }

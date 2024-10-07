@@ -14,7 +14,7 @@ pub struct Codegen;
 impl Codegen {
     pub fn generate(backend: CodegenBackend, exprs: Vec<Stmt>, out: String) {
         match backend {
-            CodegenBackend::C => CBackend::generate(exprs, out),
+            CodegenBackend::C => CBackend::generate_and_run(exprs, out),
             _ => unimplemented!(),
         };
     }

@@ -17,14 +17,16 @@ pub enum Expr {
 
 #[derive(Debug, PartialEq)]
 pub enum Stmt {
-    Var {
+    Variable {
         name: String,
         value: Box<Stmt>,
         is_mut: bool,
     },
-    Func {
+    Function {
         name: String,
         args: HashMap<String, Option<String>>,
+        external: Option<String>,
+        is_varadic: bool,
         body: Block,
     },
     Call {
@@ -34,6 +36,10 @@ pub enum Stmt {
     Assignment {
         name: String,
         value: Box<Stmt>,
+    },
+    Attribute {
+        name: String,
+        value: String,
     },
     Return(Box<Stmt>),
     Expr(Expr),

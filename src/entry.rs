@@ -21,11 +21,11 @@ macro_rules! print_line {
     }};
 
     ($msg:expr, $width:expr) => {{
-        println!("  {} {}", " ".repeat($width), $msg);
+        println!("{} {}", " ".repeat($width), $msg);
     }};
 
     ($msg:expr) => {{
-        println!("  {}", $msg);
+        println!("   {}", $msg);
     }};
 }
 
@@ -85,6 +85,4 @@ pub fn compile(file: String) {
     }
 
     Codegen::generate(CodegenBackend::C, parsed.unwrap(), file.replace(".uma", ""));
-
-    println!("compiled successfully");
 }

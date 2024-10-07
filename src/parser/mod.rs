@@ -1,7 +1,7 @@
 mod types;
 mod utils;
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 pub use types::Block;
 pub use utils::{ErrorType, ParserError};
@@ -54,11 +54,11 @@ impl Parser {
 
                 Ok(expr)
             }
-            kind => Err(ParserError::new(
+            kind => ParserError::new(
                 ErrorType::UnexpectedToken,
                 token,
                 format!("Unexpected token occurred `{:#?}`", kind),
-            )),
+            ),
         }
     }
 
@@ -172,7 +172,7 @@ impl Parser {
 
         self.tokens.try_expect(&TokenKind::Semi);
 
-        Ok(Stmt::Var {
+        Ok(Stmt::Variable {
             name,
             value: value.into(),
             is_mut,
@@ -204,51 +204,116 @@ impl Parser {
         Ok(Stmt::Call { name, args })
     }
 
-    fn function(&mut self) -> Result<Stmt, ParserError> {
-        self.tokens.expect(TokenKind::Func)?;
-
-        let name = self.tokens.expect(TokenKind::Identifier)?.value.unwrap();
-
+    fn args(
+        &mut self,
+        with_types: bool,
+        should_be_unique: bool,
+    ) -> Result<(HashMap<String, Option<String>>, bool), ParserError> {
         self.tokens.expect(TokenKind::PareL)?;
 
+        if let Some(token) = self.tokens.try_expect(&TokenKind::PareR) {
+            return Ok((mapping!(), false));
+        }
+
         let mut args = mapping!();
+        let mut is_varadic = false;
 
-        while let Some(arg) = self.tokens.try_expect(&TokenKind::Identifier) {
-            let name = arg.value.clone().unwrap();
+        loop {
+            if let Some(elip) = self.tokens.try_expect(&TokenKind::Ellipsis) {
+                self.tokens.try_expect(&TokenKind::Comma);
+                self.tokens.expect(TokenKind::PareR)?;
 
-            if args.contains_key(&name) {
-                return Err(ParserError::new(
-                    ErrorType::DuplicateArgument,
-                    arg,
-                    "Duplicate argument",
-                ));
+                is_varadic = true;
+
+                break;
             }
 
-            let r#type = {
+            let arg = self.tokens.expect(TokenKind::Identifier)?;
+            let name = arg.value.clone().unwrap();
+
+            if should_be_unique && args.contains_key(arg.value.as_ref().unwrap()) {
+                return ParserError::new(
+                    ErrorType::DuplicateArgument,
+                    arg,
+                    format!("Duplicate argument `{}`", name),
+                );
+            }
+
+            let type_: Option<String> = if with_types {
                 if let Some(token) = self.tokens.try_expect(&TokenKind::Colon) {
                     Some(self.tokens.expect(TokenKind::Identifier)?.value.unwrap())
                 } else {
                     None
                 }
+            } else {
+                None
             };
 
-            args.insert(name, r#type);
+            args.insert(name, type_);
 
-            if self.tokens.try_expect(&TokenKind::PareR).is_some() {
+            if let Some(token) = self.tokens.try_expect(&TokenKind::PareR) {
                 break;
             }
 
             self.tokens.expect(TokenKind::Comma)?;
         }
 
-        if args.is_empty() {
-            self.tokens.expect(TokenKind::PareR)?;
+        return Ok((args, is_varadic));
+    }
+
+    fn attribute(&mut self) -> Result<Stmt, ParserError> {
+        let name = self.tokens.expect(TokenKind::Identifier)?.value.unwrap();
+
+        self.tokens.expect(TokenKind::PareL)?;
+        let value = self.tokens.expect(TokenKind::String)?.value.unwrap();
+        self.tokens.expect(TokenKind::PareR)?;
+
+        Ok(Stmt::Attribute { name, value })
+    }
+
+    fn function(&mut self) -> Result<Stmt, ParserError> {
+        self.tokens.expect(TokenKind::Func)?;
+
+        let name = self.tokens.expect(TokenKind::Identifier)?.value.unwrap();
+        let (args, is_varadic) = self.args(true, true)?;
+
+        let external = self.tokens.try_expect(&TokenKind::At);
+        if external.is_some() {
+            let attr = self.attribute()?;
+
+            if let Stmt::Attribute {
+                name: attr_name,
+                value,
+            } = attr
+            {
+                if attr_name != "requires" {
+                    return ParserError::new(
+                        ErrorType::InvalidAttribute,
+                        external.unwrap(),
+                        format!("Invalid attribute `{}`, expected `requires`", attr_name),
+                    );
+                }
+
+                return Ok(Stmt::Function {
+                    name,
+                    args,
+                    external: Some(value),
+                    is_varadic,
+                    body: Block { stmts: vec![] },
+                });
+            }
         }
 
         let body = self.block()?;
         self.tokens.try_expect(&TokenKind::Semi);
 
-        Ok(Stmt::Func { name, args, body })
+        Ok(Stmt::Function {
+            name,
+            args,
+            body,
+            external: None,
+            is_varadic,
+        })
     }
 }
 
@@ -270,7 +335,7 @@ mod tests {
 
         assert_eq!(
             Parser::new(tokens).variable().unwrap(),
-            Stmt::Var {
+            Stmt::Variable {
                 name: String::from("foo"),
                 value: Expr::String(String::from("bar")).into(),
                 is_mut: true
@@ -292,7 +357,7 @@ mod tests {
         assert_eq!(
             Parser::new(tokens).parse().unwrap(),
             vec![
-                Stmt::Var {
+                Stmt::Variable {
                     name: String::from("foo"),
                     value: Expr::String(String::from("bar")).into(),
                     is_mut: true
@@ -316,7 +381,7 @@ mod tests {
 
         assert_eq!(
             Parser::new(tokens).variable().unwrap(),
-            Stmt::Var {
+            Stmt::Variable {
                 name: String::from("foo"),
                 value: Expr::Binary {
                     lhs: Expr::Number(String::from("9")).into(),
@@ -349,7 +414,7 @@ mod tests {
 
         assert_eq!(
             Parser::new(tokens).variable().unwrap(),
-            Stmt::Var {
+            Stmt::Variable {
                 name: String::from("x"),
                 value: Expr::Binary {
                     lhs: Expr::Binary {
@@ -385,9 +450,11 @@ mod tests {
 
         assert_eq!(
             Parser::new(tokens).function().unwrap(),
-            Stmt::Func {
+            Stmt::Function {
                 name: String::from("main"),
                 args: mapping!(),
+                external: None,
+                is_varadic: false,
                 body: Block {
                     stmts: vec![Stmt::Call {
                         name: String::from("print"),
@@ -412,12 +479,14 @@ mod tests {
 
         assert_eq!(
             Parser::new(tokens).function().unwrap(),
-            Stmt::Func {
+            Stmt::Function {
                 name: String::from("sum"),
                 args: mapping!(
                     String::from("x") => Some(String::from("Int")),
                     String::from("y") => Some(String::from("Int"))
                 ),
+                external: None,
+                is_varadic: false,
                 body: Block {
                     stmts: vec![Stmt::Return(
                         Expr::Binary {
@@ -429,6 +498,42 @@ mod tests {
                     )]
                 }
             }
+        )
+    }
+
+    #[test]
+    fn attribute_funcs() {
+        let tokens = Lexer::new(
+            r#"
+            func printf(fmt: String) @requires("stdio.h")
+
+            func println(fmt: String, ...) @requires("stdio.h")
+        "#,
+        )
+        .lex();
+
+        assert_eq!(
+            Parser::new(tokens).parse().unwrap(),
+            vec![
+                Stmt::Function {
+                    name: String::from("printf"),
+                    args: mapping!(
+                        String::from("fmt") => Some(String::from("String"))
+                    ),
+                    external: Some(String::from("stdio.h")),
+                    is_varadic: false,
+                    body: Block { stmts: vec![] }
+                },
+                Stmt::Function {
+                    name: String::from("println"),
+                    args: mapping!(
+                        String::from("fmt") => Some(String::from("String"))
+                    ),
+                    external: Some(String::from("stdio.h")),
+                    is_varadic: true,
+                    body: Block { stmts: vec![] }
+                },
+            ]
         )
     }
 
@@ -463,9 +568,11 @@ mod tests {
 
         assert_eq!(
             parsed.unwrap(),
-            vec![Stmt::Func {
+            vec![Stmt::Function {
                 name: String::from("main"),
                 args: mapping!(),
+                external: None,
+                is_varadic: false,
                 body: Block {
                     stmts: vec![Stmt::Call {
                         name: String::from("print"),
