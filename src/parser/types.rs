@@ -24,6 +24,7 @@ pub enum Stmt {
     },
     Function {
         name: String,
+        return_type: Option<String>,
         args: HashMap<String, Option<String>>,
         external: Option<String>,
         is_varadic: bool,

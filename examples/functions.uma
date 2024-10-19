@@ -1,0 +1,11 @@
+func printf(fmt, ...) @requires("stdio.h")
+
+func sum(x: int, y: int): int {
+     return x + y;
+}
+
+func main(): int {
+    printf("%d\n", sum(34, 35)); =
+
+    return 0;
+}

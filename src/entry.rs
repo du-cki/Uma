@@ -37,11 +37,17 @@ fn error(err: ParserError, source: &str, file_name: &str) {
     let line_num_width = max_line_num.to_string().len();
 
     print_line!(format!(
+        "{} {:?}",
+        "error:".red(),
+        err.r#type,
+    ));
+
+    print_line!(format!(
         " {} {}:{}:{}",
         "-->".blue(),
         file_name,
         error_line,
-        err.token.column
+        err.token.column,
     ));
 
     if error_line > 2 {
@@ -55,7 +61,7 @@ fn error(err: ParserError, source: &str, file_name: &str) {
     print_line!(error_line, lines[error_line - 1], line_num_width);
 
     print_line!(format!(
-        " {} {}",
+        "{} {}",
         " ".repeat(err.token.column + line_num_width),
         format!("^ {}", err.message).red()
     ));

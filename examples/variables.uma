@@ -1,0 +1,12 @@
+func printf(fmt, ...) @requires("stdio.h")
+
+
+func main() {
+    let greet = "Hello, World!";
+
+    let mut x = 35 + 34;
+    printf("%s %d\n", greet, x);
+
+    x = x + 351;
+    printf("x = %d;\n", x);
+}

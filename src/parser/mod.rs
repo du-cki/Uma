@@ -16,7 +16,6 @@ pub struct Parser {
     tokens: VecDeque<Token>,
 }
 
-#[allow(unused)]
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Parser {
         Parser {
@@ -90,7 +89,7 @@ impl Parser {
     }
 
     fn expr(&mut self) -> Result<Stmt, ParserError> {
-        let mut primary = self.primary()?;
+        let primary = self.primary()?;
         let expr = self.binary(primary, 0)?;
 
         Ok(expr)
@@ -118,7 +117,7 @@ impl Parser {
             TokenKind::Func => self.function(),
             TokenKind::Let => self.variable(),
             TokenKind::Return => self.return_(),
-            TokenKind::Identifier => self.ident(token),
+            TokenKind::Identifier => self.ident(),
             TokenKind::Semi => Ok(Stmt::Empty),
             _ => self.expr(),
         };
@@ -126,7 +125,7 @@ impl Parser {
         stmt
     }
 
-    fn ident(&mut self, token: Token) -> Result<Stmt, ParserError> {
+    fn ident(&mut self) -> Result<Stmt, ParserError> {
         if let Some(eq) = self.tokens.get(1) {
             if eq.kind == TokenKind::Equals {
                 return self.assignment();
@@ -182,7 +181,7 @@ impl Parser {
     fn call(&mut self, name: String) -> Result<Stmt, ParserError> {
         self.tokens.expect(TokenKind::PareL)?;
 
-        if let Some(token) = self.tokens.try_expect(&TokenKind::PareR) {
+        if let Some(_) = self.tokens.try_expect(&TokenKind::PareR) {
             return Ok(Stmt::Call { name, args: vec![] });
         }
 
@@ -192,7 +191,7 @@ impl Parser {
             let arg = self.expr()?;
             args.push(arg.into());
 
-            if let Some(token) = self.tokens.try_expect(&TokenKind::PareR) {
+            if let Some(_) = self.tokens.try_expect(&TokenKind::PareR) {
                 break;
             }
 
@@ -211,7 +210,7 @@ impl Parser {
     ) -> Result<(HashMap<String, Option<String>>, bool), ParserError> {
         self.tokens.expect(TokenKind::PareL)?;
 
-        if let Some(token) = self.tokens.try_expect(&TokenKind::PareR) {
+        if let Some(_) = self.tokens.try_expect(&TokenKind::PareR) {
             return Ok((mapping!(), false));
         }
 
@@ -219,7 +218,7 @@ impl Parser {
         let mut is_varadic = false;
 
         loop {
-            if let Some(elip) = self.tokens.try_expect(&TokenKind::Ellipsis) {
+            if let Some(_) = self.tokens.try_expect(&TokenKind::Ellipsis) {
                 self.tokens.try_expect(&TokenKind::Comma);
                 self.tokens.expect(TokenKind::PareR)?;
 
@@ -240,7 +239,7 @@ impl Parser {
             }
 
             let type_: Option<String> = if with_types {
-                if let Some(token) = self.tokens.try_expect(&TokenKind::Colon) {
+                if let Some(_) = self.tokens.try_expect(&TokenKind::Colon) {
                     Some(self.tokens.expect(TokenKind::Identifier)?.value.unwrap())
                 } else {
                     None
@@ -249,9 +248,10 @@ impl Parser {
                 None
             };
 
+
             args.insert(name, type_);
 
-            if let Some(token) = self.tokens.try_expect(&TokenKind::PareR) {
+            if let Some(_) = self.tokens.try_expect(&TokenKind::PareR) {
                 break;
             }
 
@@ -277,6 +277,12 @@ impl Parser {
         let name = self.tokens.expect(TokenKind::Identifier)?.value.unwrap();
         let (args, is_varadic) = self.args(true, true)?;
 
+        let mut return_type = None;
+
+        if let Some(_) = self.tokens.try_expect(&TokenKind::Colon) {
+            return_type = Some(self.tokens.expect(TokenKind::Identifier)?.value.unwrap());
+        }
+
         let external = self.tokens.try_expect(&TokenKind::At);
         if external.is_some() {
             let attr = self.attribute()?;
@@ -296,6 +302,7 @@ impl Parser {
 
                 return Ok(Stmt::Function {
                     name,
+                    return_type,
                     args,
                     external: Some(value),
                     is_varadic,
@@ -309,10 +316,11 @@ impl Parser {
 
         Ok(Stmt::Function {
             name,
+            return_type,
             args,
             body,
-            external: None,
             is_varadic,
+            external: None,
         })
     }
 }

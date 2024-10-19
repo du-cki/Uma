@@ -10,12 +10,10 @@ pub enum CodegenBackend {
 
 pub struct Codegen;
 
-#[allow(unreachable_patterns)]
 impl Codegen {
     pub fn generate(backend: CodegenBackend, exprs: Vec<Stmt>, out: String) {
         match backend {
             CodegenBackend::C => CBackend::generate_and_run(exprs, out),
-            _ => unimplemented!(),
         };
     }
 }

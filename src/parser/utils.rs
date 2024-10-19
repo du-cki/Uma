@@ -33,13 +33,9 @@ impl ParserError {
 
 pub trait Buffer<Item, Kind = TokenKind> {
     fn consume(&mut self) -> Item;
-
     fn get(&self, idx: usize) -> Option<&Item>;
-
     fn peek(&self) -> Option<Item>;
-
     fn try_expect(&mut self, kind: &Kind) -> Option<Item>;
-
     fn expect(&mut self, kind: Kind) -> Result<Item, ParserError>;
 }
 
