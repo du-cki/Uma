@@ -1,4 +1,8 @@
-use std::{fs::File, io::{self, Write}, process::{self, Command}};
+use std::{
+    fs::File,
+    io::{self, Write},
+    process::{self, Command},
+};
 
 use crate::parser::{Block, Expr, Stmt};
 
@@ -66,7 +70,7 @@ impl CBackend {
 
     fn infer_type(&self, expr: &Stmt) -> String {
         match expr {
-            Stmt::Expr (expr) => match expr {
+            Stmt::Expr(expr) => match expr {
                 Expr::String(_) => "char*".to_string(),
                 Expr::Number(_) => "int".to_string(),
                 Expr::Binary { lhs, op: _, rhs } => {
@@ -80,7 +84,12 @@ impl CBackend {
                 }
                 _ => "auto".to_string(),
             },
-            Stmt::Function { name, return_type, args, .. } => {
+            Stmt::Function {
+                name,
+                return_type,
+                args,
+                ..
+            } => {
                 let func_rt = return_type.clone().unwrap_or("void".to_string());
 
                 let args_str = args
@@ -89,8 +98,7 @@ impl CBackend {
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                format!("{} {}({})", func_rt, name , args_str)
-
+                format!("{} {}({})", func_rt, name, args_str)
             }
             _ => unreachable!(),
         }
@@ -131,7 +139,12 @@ impl CBackend {
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                format!("{}({}){}", name, args_str, with_semi.then(|| ";\n").unwrap_or(""))
+                format!(
+                    "{}({}){}",
+                    name,
+                    args_str,
+                    with_semi.then(|| ";\n").unwrap_or("")
+                )
             }
             Stmt::Function { external, body, .. } => {
                 if let Some(ext) = external {
@@ -158,7 +171,12 @@ impl CBackend {
     fn expr(&mut self, expr: &Expr) -> String {
         match expr {
             Expr::Binary { lhs, op, rhs } => {
-                format!("({} {} {})", self.stmt(lhs, false), op.repr(), self.stmt(rhs, false))
+                format!(
+                    "({} {} {})",
+                    self.stmt(lhs, false),
+                    op.repr(),
+                    self.stmt(rhs, false)
+                )
             }
             Expr::Identifier(name) => name.to_string(),
             Expr::Number(num) => num.to_string(),

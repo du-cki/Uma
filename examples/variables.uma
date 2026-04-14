@@ -1,6 +1,5 @@
 func printf(fmt, ...) @requires("stdio.h")
 
-
 func main(): int {
     let greet = "Hello, World!";
 

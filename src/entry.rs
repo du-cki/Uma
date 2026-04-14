@@ -1,7 +1,6 @@
 use std::fs;
 
 use crate::{
-    // codegen::{c::CBackend, CodeGenerator},
     codegen::{Codegen, CodegenBackend},
     lexer::Lexer,
     parser::{Parser, ParserError},
@@ -36,11 +35,7 @@ fn error(err: ParserError, source: &str, file_name: &str) {
     let max_line_num = (error_line + 2).min(lines.len());
     let line_num_width = max_line_num.to_string().len();
 
-    print_line!(format!(
-        "{} {:?}",
-        "error:".red(),
-        err.r#type,
-    ));
+    print_line!(format!("{} {:?}", "error:".red(), err.r#type,));
 
     print_line!(format!(
         " {} {}:{}:{}",

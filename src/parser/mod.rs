@@ -248,7 +248,6 @@ impl Parser {
                 None
             };
 
-
             args.insert(name, type_);
 
             if let Some(_) = self.tokens.try_expect(&TokenKind::PareR) {
@@ -462,6 +461,7 @@ mod tests {
                 name: String::from("main"),
                 args: mapping!(),
                 external: None,
+                return_type: None,
                 is_varadic: false,
                 body: Block {
                     stmts: vec![Stmt::Call {
@@ -494,6 +494,7 @@ mod tests {
                     String::from("y") => Some(String::from("Int"))
                 ),
                 external: None,
+                return_type: None,
                 is_varadic: false,
                 body: Block {
                     stmts: vec![Stmt::Return(
@@ -529,6 +530,7 @@ mod tests {
                         String::from("fmt") => Some(String::from("String"))
                     ),
                     external: Some(String::from("stdio.h")),
+                    return_type: None,
                     is_varadic: false,
                     body: Block { stmts: vec![] }
                 },
@@ -538,6 +540,7 @@ mod tests {
                         String::from("fmt") => Some(String::from("String"))
                     ),
                     external: Some(String::from("stdio.h")),
+                    return_type: None,
                     is_varadic: true,
                     body: Block { stmts: vec![] }
                 },
@@ -580,6 +583,7 @@ mod tests {
                 name: String::from("main"),
                 args: mapping!(),
                 external: None,
+                return_type: None,
                 is_varadic: false,
                 body: Block {
                     stmts: vec![Stmt::Call {
