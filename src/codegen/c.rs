@@ -1,32 +1,50 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{self, Write},
     process::{self, Command},
 };
 
-use crate::parser::{Block, Expr, Stmt};
+use crate::{
+    codegen::CodegenError,
+    parser::{Block, Expr, Stmt},
+};
 
 pub(crate) struct CBackend {
     headers: Vec<String>,
+    function_types: HashMap<String, String>,
 }
 
 impl CBackend {
-    pub fn generate(exprs: Vec<Stmt>, out: impl ToString) -> String {
+    pub fn generate(exprs: Vec<Stmt>, out: impl ToString) -> Result<String, CodegenError> {
         let mut code = String::new();
-        let mut backend = CBackend { headers: vec![] };
+        let mut backend = CBackend {
+            headers: vec![],
+            function_types: HashMap::new(),
+        };
 
-        for expr in exprs {
-            code.push_str(&backend.stmt(&expr, true));
+        for expr in &exprs {
+            if let Stmt::Function {
+                name, return_type, ..
+            } = expr
+            {
+                let rt = return_type.clone().unwrap_or("void".to_string());
+                backend.function_types.insert(name.clone(), rt);
+            }
         }
 
-        backend.compile(
+        for expr in exprs {
+            code.push_str(&backend.stmt(&expr, true)?);
+        }
+
+        Ok(backend.compile(
             format!("{}\n\n{}", backend.headers.join("\n"), code),
             out.to_string(),
-        )
+        ))
     }
 
-    pub fn generate_and_run(exprs: Vec<Stmt>, out: String) {
-        let result = Self::generate(exprs, &out);
+    pub fn generate_and_run(exprs: Vec<Stmt>, out: String) -> Result<(), CodegenError> {
+        let result = Self::generate(exprs, &out)?;
 
         let output = Command::new(result)
             .output()
@@ -34,6 +52,8 @@ impl CBackend {
 
         io::stdout().write_all(&output.stdout).unwrap();
         io::stdout().flush().unwrap();
+
+        Ok(())
     }
 
     fn compile(&self, source: String, out: String) -> String {
@@ -68,11 +88,11 @@ impl CBackend {
         }
     }
 
-    fn infer_type(&self, expr: &Stmt) -> String {
+    fn infer_type(&self, expr: &Stmt) -> Result<String, CodegenError> {
         match expr {
             Stmt::Expr(expr) => match expr {
-                Expr::String(_) => "char*".to_string(),
-                Expr::Number(_) => "int".to_string(),
+                Expr::String(_) => Ok("char*".to_string()),
+                Expr::Number(_) => Ok("int".to_string()),
                 Expr::Binary { lhs, op: _, rhs } => {
                     let l = self.infer_type(lhs);
 
@@ -82,7 +102,7 @@ impl CBackend {
 
                     panic!("Mismatched types found.")
                 }
-                _ => "auto".to_string(),
+                _ => Ok("auto".to_string()),
             },
             Stmt::Function {
                 name,
@@ -98,47 +118,53 @@ impl CBackend {
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                format!("{} {}({})", func_rt, name, args_str)
+                Ok(format!("{} {}({})", func_rt, name, args_str))
             }
-            Stmt::Call { .. } => String::from("__auto_type"),
-            _ => unreachable!(),
+            Stmt::Call { name, token, .. } => match self.function_types.get(name) {
+                Some(return_type) => Ok(return_type.clone()),
+                None => Err(CodegenError::new(
+                    format!("Call to undefined function '{}'", name),
+                    token.clone(),
+                )),
+            },
+            stmt => unreachable!("could not infer type for: {:?}", stmt),
         }
     }
 
-    fn block(&mut self, block: &Block) -> String {
+    fn block(&mut self, block: &Block) -> Result<String, CodegenError> {
         let mut code = String::new();
 
         for stmt in &block.stmts {
-            code.push_str(&self.stmt(stmt, true));
+            code.push_str(&self.stmt(stmt, true)?);
         }
 
-        code
+        Ok(code)
     }
 
-    fn stmt(&mut self, stmt: &Stmt, with_semi: bool) -> String {
-        match stmt {
-            Stmt::Block(block) => format!("{{\n{}}}\n", self.block(block)),
+    fn stmt(&mut self, stmt: &Stmt, with_semi: bool) -> Result<String, CodegenError> {
+        Ok(match stmt {
+            Stmt::Block(block) => format!("{{\n{}}}\n", self.block(block)?),
             Stmt::Variable {
                 name,
                 value,
                 is_mut,
             } => {
                 let type_decl = if *is_mut {
-                    self.infer_type(value)
+                    self.infer_type(value)?
                 } else {
-                    format!("const {}", self.infer_type(value))
+                    format!("const {}", self.infer_type(value)?)
                 };
 
-                format!("{} {} = {};\n", type_decl, name, self.stmt(value, false))
+                format!("{} {} = {};\n", type_decl, name, self.stmt(value, false)?)
             }
             Stmt::Assignment { name, value } => {
-                format!("{} = {};\n", name, self.stmt(value, false))
+                format!("{} = {};\n", name, self.stmt(value, false)?)
             }
-            Stmt::Call { name, args } => {
+            Stmt::Call { name, args, .. } => {
                 let args_str = args
                     .iter()
                     .map(|arg| self.stmt(arg, false))
-                    .collect::<Vec<_>>()
+                    .collect::<Result<Vec<_>, _>>()?
                     .join(", ");
 
                 format!(
@@ -152,15 +178,15 @@ impl CBackend {
                 if let Some(ext) = external {
                     self.add_header_if_not_exist(format!("#include <{}>", ext));
 
-                    return "".to_string();
+                    return Ok("".to_string());
                 }
 
-                let func_proto = self.infer_type(stmt);
+                let func_proto = self.infer_type(stmt)?;
 
-                format!("{} {{\n{}\n}}\n", func_proto, self.block(body))
+                format!("{} {{\n{}\n}}\n", func_proto, self.block(body)?)
             }
             Stmt::Return(stmt) => {
-                let expr = self.stmt(stmt, false);
+                let expr = self.stmt(stmt, false)?;
 
                 format!("return {};", expr)
             }
@@ -169,18 +195,18 @@ impl CBackend {
                 consequence,
                 alternative,
             } => {
-                let cond_str = self.stmt(condition, false);
-                let consequence_str = self.block(consequence);
+                let cond_str = self.stmt(condition, false)?;
+                let consequence_str = self.block(consequence)?;
 
                 let mut code = format!("if ({}) {{\n{}}}", cond_str, consequence_str);
 
                 if let Some(alt) = alternative {
                     match &**alt {
                         Stmt::If { .. } => {
-                            code.push_str(&format!(" else {}", self.stmt(alt, false)));
+                            code.push_str(&format!(" else {}", self.stmt(alt, false)?));
                         }
                         Stmt::Block(block) => {
-                            code.push_str(&format!(" else {{\n{}}}\n", self.block(block)));
+                            code.push_str(&format!(" else {{\n{}}}\n", self.block(block)?));
                         }
                         _ => unreachable!("alternative must be an If or a Block"),
                     }
@@ -190,26 +216,26 @@ impl CBackend {
 
                 code
             }
-            Stmt::Expr(expr) => self.expr(expr),
+            Stmt::Expr(expr) => self.expr(expr)?,
             Stmt::Empty => "".to_string(),
             stmt => unimplemented!("{:?}", stmt),
-        }
+        })
     }
 
-    fn expr(&mut self, expr: &Expr) -> String {
-        match expr {
+    fn expr(&mut self, expr: &Expr) -> Result<String, CodegenError> {
+        Ok(match expr {
             Expr::Binary { lhs, op, rhs } => {
                 format!(
                     "({} {} {})",
-                    self.stmt(lhs, false),
+                    self.stmt(lhs, false)?,
                     op.repr(),
-                    self.stmt(rhs, false)
+                    self.stmt(rhs, false)?
                 )
             }
             Expr::Identifier(name) => name.to_string(),
             Expr::Number(num) => num.to_string(),
             Expr::Float(num) => num.to_string(),
             Expr::String(value) => format!("\"{}\"", value.replace("\n", r#"\n"#)),
-        }
+        })
     }
 }

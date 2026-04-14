@@ -2,8 +2,8 @@ use std::fs;
 
 use crate::{
     codegen::{Codegen, CodegenBackend},
-    lexer::Lexer,
-    parser::{Parser, ParserError},
+    lexer::{Lexer, Token},
+    parser::Parser,
 };
 
 use super::colors::*;
@@ -28,21 +28,21 @@ macro_rules! print_line {
     }};
 }
 
-fn error(err: ParserError, source: &str, file_name: &str) {
+fn error(token: &Token, err_type: &str, message: &str, source: &str, file_name: &str) {
     let lines: Vec<&str> = source.lines().collect();
-    let error_line = err.token.line;
+    let error_line = token.line;
 
     let max_line_num = (error_line + 2).min(lines.len());
     let line_num_width = max_line_num.to_string().len();
 
-    print_line!(format!("{} {:?}", "error:".red(), err.r#type,));
+    print_line!(format!("{} {}", "error:".red(), err_type));
 
     print_line!(format!(
         " {} {}:{}:{}",
         "-->".blue(),
         file_name,
         error_line,
-        err.token.column,
+        token.column,
     ));
 
     if error_line > 2 {
@@ -57,8 +57,8 @@ fn error(err: ParserError, source: &str, file_name: &str) {
 
     print_line!(format!(
         "{} {}",
-        " ".repeat(err.token.column + line_num_width),
-        format!("^ {}", err.message).red()
+        " ".repeat(token.column + line_num_width),
+        format!("^ {}", message).red()
     ));
 
     if error_line < lines.len() {
@@ -79,11 +79,23 @@ pub fn compile(file: String) {
     };
 
     let tokens = Lexer::new(&src).lex();
-    let parsed = Parser::new(tokens).parse();
 
-    if parsed.is_err() {
-        return error(parsed.unwrap_err(), &src, &file);
-    }
+    let ast = match Parser::new(tokens).parse() {
+        Ok(ast) => ast,
+        Err(err) => {
+            error(
+                &err.token,
+                &format!("{:?}", err.r#type),
+                &err.message,
+                &src,
+                &file,
+            );
+            return;
+        }
+    };
 
-    Codegen::generate(CodegenBackend::C, parsed.unwrap(), file.replace(".uma", ""));
+    match Codegen::generate(CodegenBackend::C, ast, file.replace(".uma", "")) {
+        Err(err) => error(&err.token, "SemanticError", &err.message, &src, &file),
+        _ => (),
+    };
 }

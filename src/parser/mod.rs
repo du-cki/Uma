@@ -41,7 +41,7 @@ impl Parser {
             TokenKind::Identifier => {
                 if let Some(peeked) = self.tokens.peek() {
                     if peeked.kind == TokenKind::PareL {
-                        return self.call(token.value.unwrap());
+                        return self.call(token);
                     }
                 }
 
@@ -210,11 +210,16 @@ impl Parser {
         })
     }
 
-    fn call(&mut self, name: String) -> Result<Stmt, ParserError> {
+    fn call(&mut self, token: Token) -> Result<Stmt, ParserError> {
+        let name = token.value.clone().unwrap();
         self.tokens.expect(TokenKind::PareL)?;
 
         if let Some(_) = self.tokens.try_expect(&TokenKind::PareR) {
-            return Ok(Stmt::Call { name, args: vec![] });
+            return Ok(Stmt::Call {
+                name,
+                args: vec![],
+                token,
+            });
         }
 
         let mut args = Vec::new();
@@ -232,7 +237,7 @@ impl Parser {
 
         self.tokens.try_expect(&TokenKind::Semi);
 
-        Ok(Stmt::Call { name, args })
+        Ok(Stmt::Call { name, args, token })
     }
 
     fn args(

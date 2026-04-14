@@ -70,7 +70,13 @@ fn basic_arithmetic() {
                     op: Token::new(TokenKind::Multi, None, 2, 30),
                     rhs: Stmt::Call {
                         name: String::from("round"),
-                        args: vec![Expr::Float(String::from("3.14")).into()]
+                        args: vec![Expr::Float(String::from("3.14")).into()],
+                        token: Token::new(
+                            TokenKind::Identifier,
+                            Some(String::from("round")),
+                            2,
+                            32
+                        )
                     }
                     .into()
                 }
@@ -138,7 +144,8 @@ fn function_body() {
             body: Block {
                 stmts: vec![Stmt::Call {
                     name: String::from("print"),
-                    args: vec![Expr::String(String::from("Hello, World!")).into()]
+                    args: vec![Expr::String(String::from("Hello, World!")).into()],
+                    token: Token::new(TokenKind::Identifier, Some(String::from("print")), 3, 17)
                 }
                 .into()]
             }
@@ -374,7 +381,8 @@ fn program() {
             body: Block {
                 stmts: vec![Stmt::Call {
                     name: String::from("print"),
-                    args: vec![Expr::String(String::from("Hello, World!")).into()]
+                    args: vec![Expr::String(String::from("Hello, World!")).into()],
+                    token: Token::new(TokenKind::Identifier, Some(String::from("print")), 3, 17)
                 }
                 .into()]
             }

@@ -33,6 +33,7 @@ pub enum Stmt {
     Call {
         name: String,
         args: Vec<Box<Stmt>>,
+        token: Token,
     },
     If {
         condition: Box<Stmt>,
@@ -60,12 +61,12 @@ pub struct Block {
 
 impl Into<Expr> for Token {
     fn into(self) -> Expr {
-        match self.kind {
+        match &self.kind {
             TokenKind::String => Expr::String(self.value.unwrap()),
             TokenKind::Number => Expr::Number(self.value.unwrap()),
             TokenKind::Float => Expr::Float(self.value.unwrap()),
             TokenKind::Identifier => Expr::Identifier(self.value.unwrap()),
-            ref other => panic!("cannot convert `{:#?}` to an `Expr`: {:#?}", self, other),
+            other => panic!("cannot convert `{:#?}` to an `Expr`: {:#?}", self, other),
         }
     }
 }

@@ -62,7 +62,7 @@ impl Token {
     }
 
     pub fn repr(&self) -> String {
-        match self.kind {
+        match &self.kind {
             TokenKind::Add => String::from("+"),
             TokenKind::Sub => String::from("-"),
             TokenKind::Multi => String::from("*"),
@@ -73,7 +73,7 @@ impl Token {
             TokenKind::BinaryGte => String::from(">="),
             TokenKind::BinaryLt => String::from("<"),
             TokenKind::BinaryLte => String::from("<="),
-            _ => panic!("no repr found for token: {:?}", self.kind),
+            kind => panic!("no repr found for token: {:?}", kind),
         }
     }
 }
