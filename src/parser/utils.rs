@@ -67,10 +67,7 @@ impl Buffer<Token> for VecDeque<Token> {
             .unwrap_or(Token::new(TokenKind::None, None, 0, 0));
 
         Err(ParserError {
-            message: format!(
-                "Expected `{:#?}` but encountered an `{:#?}`",
-                kind, &token.kind
-            ),
+            message: format!("Expected `{:#?}` but found `{:#?}`", kind, &token.kind),
             token,
             r#type: ErrorType::ExpectedToken,
         })

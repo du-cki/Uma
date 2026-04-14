@@ -1,0 +1,16 @@
+func printf(fmt, ...) @requires("stdio.h")
+
+func fibonacci(n: int): int {
+    if (n <= 1) {
+        return n;
+    } else {
+        return fibonacci(n - 1) + fibonacci(n - 2);
+    }
+}
+
+func main(): int {
+    let fib = fibonacci(10);
+    printf("%d\n", fib);
+
+    return 0;
+}

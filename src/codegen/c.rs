@@ -100,6 +100,7 @@ impl CBackend {
 
                 format!("{} {}({})", func_rt, name, args_str)
             }
+            Stmt::Call { .. } => String::from("__auto_type"),
             _ => unreachable!(),
         }
     }
@@ -116,6 +117,7 @@ impl CBackend {
 
     fn stmt(&mut self, stmt: &Stmt, with_semi: bool) -> String {
         match stmt {
+            Stmt::Block(block) => format!("{{\n{}}}\n", self.block(block)),
             Stmt::Variable {
                 name,
                 value,
@@ -161,6 +163,32 @@ impl CBackend {
                 let expr = self.stmt(stmt, false);
 
                 format!("return {};", expr)
+            }
+            Stmt::If {
+                condition,
+                consequence,
+                alternative,
+            } => {
+                let cond_str = self.stmt(condition, false);
+                let consequence_str = self.block(consequence);
+
+                let mut code = format!("if ({}) {{\n{}}}", cond_str, consequence_str);
+
+                if let Some(alt) = alternative {
+                    match &**alt {
+                        Stmt::If { .. } => {
+                            code.push_str(&format!(" else {}", self.stmt(alt, false)));
+                        }
+                        Stmt::Block(block) => {
+                            code.push_str(&format!(" else {{\n{}}}\n", self.block(block)));
+                        }
+                        _ => unreachable!("alternative must be an If or a Block"),
+                    }
+                } else {
+                    code.push('\n');
+                }
+
+                code
             }
             Stmt::Expr(expr) => self.expr(expr),
             Stmt::Empty => "".to_string(),

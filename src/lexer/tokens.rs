@@ -67,7 +67,13 @@ impl Token {
             TokenKind::Sub => String::from("-"),
             TokenKind::Multi => String::from("*"),
             TokenKind::Div => String::from("/"),
-            _ => panic!("Unknown token kind."),
+            TokenKind::BinaryEq => String::from("=="),
+            TokenKind::BinaryNeq => String::from("!="),
+            TokenKind::BinaryGt => String::from(">"),
+            TokenKind::BinaryGte => String::from(">="),
+            TokenKind::BinaryLt => String::from("<"),
+            TokenKind::BinaryLte => String::from("<="),
+            _ => panic!("no repr found for token: {:?}", self.kind),
         }
     }
 }
