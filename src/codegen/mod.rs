@@ -1,8 +1,7 @@
-use c::CBackend;
-
-use crate::parser::Stmt;
-
 pub mod c;
+
+use c::CBackend;
+use crate::parser::Stmt;
 
 pub enum CodegenBackend {
     C,

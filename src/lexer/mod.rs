@@ -124,7 +124,6 @@ impl<'a> Lexer<'a> {
             match self.buffer.current {
                 ':' => TokenKind::Colon,
                 ';' => TokenKind::Semi,
-                '=' => TokenKind::Equals,
                 ',' => TokenKind::Comma,
                 '{' => TokenKind::BraceL,
                 '}' => TokenKind::BraceR,
@@ -138,6 +137,44 @@ impl<'a> Lexer<'a> {
                 '*' => TokenKind::Multi,
                 '^' => TokenKind::Expo,
                 '@' => TokenKind::At,
+
+                '=' => {
+                    if let Some('=') = self.buffer.peek() {
+                        self.buffer.next();
+
+                        TokenKind::BinaryEq
+                    } else {
+                        TokenKind::Equals
+                    }
+                }
+                '!' => {
+                    if let Some('=') = self.buffer.peek() {
+                        self.buffer.next();
+
+                        TokenKind::BinaryNeq
+                    } else {
+                        panic!("Unexpected character `!` found while parsing.");
+                    }
+                }
+                '<' => {
+                    if let Some('=') = self.buffer.peek() {
+                        self.buffer.next();
+
+                        TokenKind::BinaryLte
+                    } else {
+                        TokenKind::BinaryLt
+                    }
+                }
+                '>' => {
+                    if let Some('=') = self.buffer.peek() {
+                        self.buffer.next();
+
+                        TokenKind::BinaryGte
+                    } else {
+                        TokenKind::BinaryGt
+                    }
+                }
+
                 '.' => {
                     if let Some('.') = self.buffer.peek() {
                         self.buffer.next();
@@ -280,6 +317,23 @@ mod tests {
                 1,
                 0
             )
+        )
+    }
+
+    #[test]
+    fn binary_ops_parsing() {
+        let parsed = Lexer::new("<><=>===!=").lex();
+
+        assert_eq!(
+            parsed,
+            vec![
+                Token::new(TokenKind::BinaryLt, None, 1, 0),
+                Token::new(TokenKind::BinaryGt, None, 1, 1),
+                Token::new(TokenKind::BinaryLte, None, 1, 2),
+                Token::new(TokenKind::BinaryGte, None, 1, 4),
+                Token::new(TokenKind::BinaryEq, None, 1, 6),
+                Token::new(TokenKind::BinaryNeq, None, 1, 8),
+            ]
         )
     }
 

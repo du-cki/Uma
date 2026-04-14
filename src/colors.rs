@@ -12,6 +12,7 @@ macro_rules! colour_my_pencils {
     }};
 }
 
+#[allow(dead_code)]
 pub trait Colour
 where
     Self: std::fmt::Display + std::fmt::Debug,

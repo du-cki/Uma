@@ -28,6 +28,13 @@ pub enum TokenKind {
     At,
     Ellipsis,
 
+    BinaryEq,
+    BinaryNeq,
+    BinaryGt,
+    BinaryGte,
+    BinaryLt,
+    BinaryLte,
+
     Let,
     Mut,
     If,

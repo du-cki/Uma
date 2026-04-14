@@ -33,7 +33,6 @@ impl ParserError {
 
 pub trait Buffer<Item, Kind = TokenKind> {
     fn consume(&mut self) -> Item;
-    fn get(&self, idx: usize) -> Option<&Item>;
     fn peek(&self) -> Option<Item>;
     fn try_expect(&mut self, kind: &Kind) -> Option<Item>;
     fn expect(&mut self, kind: Kind) -> Result<Item, ParserError>;
@@ -42,10 +41,6 @@ pub trait Buffer<Item, Kind = TokenKind> {
 impl Buffer<Token> for VecDeque<Token> {
     fn consume(&mut self) -> Token {
         self.pop_front().expect("Unexpected end of tokens")
-    }
-
-    fn get(&self, idx: usize) -> Option<&Token> {
-        self.get(idx)
     }
 
     fn peek(&self) -> Option<Token> {

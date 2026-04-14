@@ -118,11 +118,16 @@ impl Parser {
             TokenKind::Let => self.variable(),
             TokenKind::Return => self.return_(),
             TokenKind::Identifier => self.ident(),
+            TokenKind::If => self.if_(),
             TokenKind::Semi => Ok(Stmt::Empty),
             _ => self.expr(),
         };
 
         stmt
+    }
+
+    fn if_(&mut self) -> Result<Stmt, ParserError> {
+        unimplemented!()
     }
 
     fn ident(&mut self) -> Result<Stmt, ParserError> {
