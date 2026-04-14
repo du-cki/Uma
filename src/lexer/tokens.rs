@@ -80,6 +80,12 @@ impl TokenKind {
             TT::Expo => 3,
             TT::Div | TT::Multi => 2,
             TT::Add | TT::Sub => 1,
+            TT::BinaryEq
+            | TT::BinaryNeq
+            | TT::BinaryGt
+            | TT::BinaryGte
+            | TT::BinaryLt
+            | TT::BinaryLte => 0,
             _ => -1,
         }
     }

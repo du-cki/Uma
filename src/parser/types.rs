@@ -34,6 +34,12 @@ pub enum Stmt {
         name: String,
         args: Vec<Box<Stmt>>,
     },
+    If {
+        condition: Box<Stmt>,
+        consequence: Block,
+        alternative: Option<Box<Stmt>>,
+    },
+    Block(Block),
     Assignment {
         name: String,
         value: Box<Stmt>,
