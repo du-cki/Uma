@@ -40,6 +40,12 @@ pub enum Stmt {
         consequence: Block,
         alternative: Option<Box<Stmt>>,
     },
+    For {
+        iterator: String,
+        start: Box<Stmt>,
+        end: Box<Stmt>,
+        body: Block,
+    },
     Block(Block),
     Assignment {
         name: String,

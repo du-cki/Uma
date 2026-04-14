@@ -358,6 +358,39 @@ fn if_else_if_else_statement() {
 }
 
 #[test]
+fn _inline_range_for() {
+    let tokens = Lexer::new(
+        r#"
+            for x in 0..25 {
+                print(x)
+            }
+        "#,
+    )
+    .lex();
+
+    assert_eq!(
+        Parser::new(tokens).for_().unwrap(),
+        Stmt::For {
+            iterator: String::from("x"),
+            start: Expr::Number(String::from("0")).into(),
+            end: Expr::Number(String::from("25")).into(),
+            body: Block {
+                stmts: vec![Stmt::Call {
+                    name: String::from("print"),
+                    args: vec![Expr::Identifier(String::from("x")).into()],
+                    token: Token {
+                        kind: TokenKind::Identifier,
+                        value: Some(String::from("print")),
+                        line: 3,
+                        column: 17
+                    }
+                }]
+            }
+        }
+    )
+}
+
+#[test]
 fn program() {
     let tokens = Lexer::new(
         r#"

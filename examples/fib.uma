@@ -9,8 +9,9 @@ func fibonacci(n: int): int {
 }
 
 func main(): int {
-    let fib = fibonacci(10);
-    printf("%d\n", fib);
+    for i in 0..10 {
+        printf("%d\n", fibonacci(i));
+    }
 
     return 0;
 }

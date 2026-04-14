@@ -119,11 +119,32 @@ impl Parser {
             TokenKind::Return => self.return_(),
             TokenKind::Identifier => self.ident(),
             TokenKind::If => self.if_(),
+            TokenKind::For => self.for_(),
             TokenKind::Semi => Ok(Stmt::Empty),
             _ => self.expr(),
         };
 
         stmt
+    }
+
+    fn for_(&mut self) -> Result<Stmt, ParserError> {
+        self.tokens.expect(TokenKind::For)?;
+
+        let iterator = self.tokens.expect(TokenKind::Identifier)?.value.unwrap();
+        self.tokens.expect(TokenKind::In)?;
+
+        let start = self.expr()?;
+        self.tokens.expect(TokenKind::DotDot)?;
+        let end = self.expr()?;
+
+        let body = self.block()?;
+
+        Ok(Stmt::For {
+            iterator,
+            start: start.into(),
+            end: end.into(),
+            body,
+        })
     }
 
     fn if_(&mut self) -> Result<Stmt, ParserError> {

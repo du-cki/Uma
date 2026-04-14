@@ -12,6 +12,8 @@ fn match_keyword_to_token(keyword: &str, line: usize, column: usize) -> Option<T
             "if" => Some(TokenKind::If),
             "else" => Some(TokenKind::Else),
             "func" => Some(TokenKind::Func),
+            "for" => Some(TokenKind::For),
+            "in" => Some(TokenKind::In),
             "return" => Some(TokenKind::Return),
             "true" => Some(TokenKind::True),
             "false" => Some(TokenKind::False),
@@ -60,6 +62,10 @@ impl<'a> Lexer<'a> {
             || self.buffer.current == '_'
             || self.buffer.current == '.'
         {
+            if self.buffer.eof {
+                break;
+            }
+
             let curr = self.buffer.current;
 
             if curr == '_' {
@@ -68,6 +74,10 @@ impl<'a> Lexer<'a> {
             }
 
             if curr == '.' {
+                if let Some('.') = self.buffer.peek() {
+                    break;
+                }
+
                 if out.contains('.') {
                     panic!("More than one decimal point found.");
                 }
@@ -185,7 +195,9 @@ impl<'a> Lexer<'a> {
 
                             return Token::new(TokenKind::Ellipsis, None, line, column);
                         } else {
-                            panic!("Unexpected character `..` found while parsing.");
+                            self.buffer.next();
+
+                            return Token::new(TokenKind::DotDot, None, line, column);
                         }
                     }
 
@@ -297,7 +309,7 @@ mod tests {
 
     #[test]
     fn float_parsing() {
-        let parsed_float = Lexer::new("3.14156;").number();
+        let parsed_float = Lexer::new("3.14156").number();
 
         assert_eq!(
             parsed_float,
@@ -333,6 +345,20 @@ mod tests {
                 Token::new(TokenKind::BinaryGte, None, 1, 4),
                 Token::new(TokenKind::BinaryEq, None, 1, 6),
                 Token::new(TokenKind::BinaryNeq, None, 1, 8),
+            ]
+        )
+    }
+
+    #[test]
+    fn inline_range() {
+        let parsed = Lexer::new("10..100").lex();
+
+        assert_eq!(
+            parsed,
+            vec![
+                Token::new(TokenKind::Number, Some(String::from("10")), 1, 0),
+                Token::new(TokenKind::DotDot, None, 1, 2),
+                Token::new(TokenKind::Number, Some(String::from("100")), 1, 4),
             ]
         )
     }

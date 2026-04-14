@@ -35,12 +35,16 @@ pub enum TokenKind {
     BinaryLt,
     BinaryLte,
 
+    DotDot,
+
     Let,
     Mut,
     If,
     Else,
     Return,
     Func,
+    For,
+    In,
 }
 
 #[derive(Debug, PartialEq, Clone)]

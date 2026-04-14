@@ -185,6 +185,24 @@ impl CBackend {
 
                 format!("{} {{\n{}\n}}\n", func_proto, self.block(body)?)
             }
+            Stmt::For {
+                iterator,
+                start,
+                end,
+                body,
+            } => {
+                let start_val = self.stmt(start, false)?;
+                let end_val = self.stmt(end, false)?;
+                let body_code = self.block(body)?;
+
+                format!(
+                    "for (int {it} = {start}; {it} < {end}; {it}++) {{\n{body}}}\n",
+                    it = iterator,
+                    start = start_val,
+                    end = end_val,
+                    body = body_code
+                )
+            }
             Stmt::Return(stmt) => {
                 let expr = self.stmt(stmt, false)?;
 
