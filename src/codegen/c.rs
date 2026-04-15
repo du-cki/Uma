@@ -43,7 +43,7 @@ impl CBackend {
         ))
     }
 
-    pub fn generate_and_run(exprs: Vec<Stmt>, out: String) -> Result<(), CodegenError> {
+    pub fn generate_and_run(exprs: Vec<Stmt>, out: &String) -> Result<(), CodegenError> {
         let result = Self::generate(exprs, &out)?;
 
         let output = Command::new(result)

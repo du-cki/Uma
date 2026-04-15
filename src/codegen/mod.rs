@@ -28,7 +28,7 @@ impl Codegen {
     pub fn generate(
         backend: CodegenBackend,
         exprs: Vec<Stmt>,
-        out: String,
+        out: &String,
     ) -> Result<(), CodegenError> {
         match backend {
             CodegenBackend::C => CBackend::generate_and_run(exprs, out)?,

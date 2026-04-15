@@ -2,11 +2,10 @@ use std::fs;
 
 use crate::{
     codegen::{Codegen, CodegenBackend},
+    colors::*,
     lexer::{Lexer, Token},
     parser::Parser,
 };
-
-use super::colors::*;
 
 macro_rules! print_line {
     ($line_num:expr, $msg:expr, $width:expr) => {{
@@ -72,8 +71,8 @@ fn error(token: &Token, err_type: &str, message: &str, source: &str, file_name: 
     std::process::exit(1);
 }
 
-pub fn compile(file: String) {
-    let src = match fs::read_to_string(&file) {
+pub fn compile(input_file: &String, output_file: Option<&String>) {
+    let src = match fs::read_to_string(&input_file) {
         Ok(src) => src,
         Err(e) => panic!("{}", e),
     };
@@ -88,14 +87,18 @@ pub fn compile(file: String) {
                 &format!("{:?}", err.r#type),
                 &err.message,
                 &src,
-                &file,
+                &input_file,
             );
             return;
         }
     };
 
-    match Codegen::generate(CodegenBackend::C, ast, file.replace(".uma", "")) {
-        Err(err) => error(&err.token, "SemanticError", &err.message, &src, &file),
+    match Codegen::generate(
+        CodegenBackend::C,
+        ast,
+        output_file.unwrap_or(&input_file.replace(".uma", "")),
+    ) {
+        Err(err) => error(&err.token, "SemanticError", &err.message, &src, &input_file),
         _ => (),
     };
 }
