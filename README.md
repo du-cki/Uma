@@ -1,6 +1,6 @@
 ## The Uma Programming Language
 
-Uma is a toy programming language built with Rust. Initially, it started as a project to learn Rust but I fell in the rabbit hole of lang-dev. As it is now, it parses the source into an AST and transpiles to C under the hood.
+Uma is a toy programming language built with Rust. Initially, it started as a project to learn Rust, but I fell into the rabbit hole of lang-dev. As it is now, it parses the source into an AST and transpiles to C under the hood.
 
 ## Installation
 

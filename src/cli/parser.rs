@@ -229,7 +229,6 @@ impl ArgParser {
                 ""
             };
 
-            // Format aligned columns
             println!(
                 "    {}, {:<15} {}",
                 short.blue(),
